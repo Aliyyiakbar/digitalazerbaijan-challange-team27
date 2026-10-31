@@ -126,8 +126,8 @@ function ClickAway({ onClick }: { onClick?: () => void }) {
 const Background = memo(function Background({ lines }: { lines: MapLine[] }) {
   return (
     <>
-      {lines.map((l) => (
-        <Polyline key={`bg-${l.id}`} positions={l.coords} interactive={false} pathOptions={{ color: l.color, weight: l.weight ?? 1.5, opacity: l.opacity ?? 0.35 }} />
+      {lines.map((l, index) => (
+        <Polyline key={`bg-${l.id}-${index}`} positions={l.coords} interactive={false} pathOptions={{ color: l.color, weight: l.weight ?? 1.5, opacity: l.opacity ?? 0.35 }} />
       ))}
     </>
   );

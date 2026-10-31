@@ -1,6 +1,6 @@
 // Xətlər: default olaraq yalnız diqqət tələb edənlər (yüksək sıxlıq, proqnoz, tıxac, toplanma, hücum).
 // Qalan təfərrüat (sürət, avtobus sayı, bildiriş sayı) xəttin panelindədir.
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Search } from 'lucide-react';
 import type { RouteView } from '../api';
 import { CrowdPill, RouteBadge, TrustMark } from '../components/Crowd';
@@ -54,10 +54,10 @@ export function RouteTable({ routes, selected, onSelect }: { routes: RouteView[]
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {rows.map((r, index) => {
               const hi = Math.floor(r.highForMs / 60_000);
               return (
-                <tr key={r.id} className={selected === r.id ? 'sel' : ''} onClick={() => onSelect(r.id)}>
+                <tr key={r.id} className={selected === r.id ? 'sel' : ''} onClick={() => onSelect(r.id)} style={{ '--i': Math.min(index, 12) } as CSSProperties}>
                   <th scope="row">
                     <button type="button" className="row-btn" onClick={() => onSelect(r.id)} aria-label={`${r.id} xəttinin təfərrüatı`}>
                       <RouteBadge id={r.id} color={r.color} size="sm" />

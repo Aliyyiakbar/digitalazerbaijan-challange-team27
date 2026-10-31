@@ -43,6 +43,7 @@ export function MobileApp() {
   const page = view.kind === 'lines' || view.kind === 'saved' || view.kind === 'search' || prefs.simple;
   const onStop = (id: string) => go({ kind: 'stop', id });
   const onRoute = (id: string) => go({ kind: 'route', id });
+  const viewKey = `${view.kind}:${'id' in view ? view.id : ''}`;
   const activeTab = TABS.find((t) => t.kind === view.kind || t.also?.includes(view.kind))?.kind ?? 'home';
 
   const theme = useResolvedTheme(prefs.theme);
@@ -182,11 +183,17 @@ export function MobileApp() {
                 <span>Dayanacaq və ya xətt axtar</span>
               </button>
             )}
-            {body}
+            <div key={viewKey} className="view-enter">
+              {body}
+            </div>
           </main>
         ) : (
           <BottomSheet snap={snap} onSnap={setSnap} stage={stage} top={TOP_GAP} label="Məlumat paneli">
-            <main id="m-main">{body}</main>
+            <main id="m-main">
+              <div key={viewKey} className="view-enter">
+                {body}
+              </div>
+            </main>
           </BottomSheet>
         )}
       </div>

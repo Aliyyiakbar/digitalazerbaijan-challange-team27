@@ -1,5 +1,5 @@
 // Xəbərdarlıq kartı: başlıq, tövsiyə, "Niyə?" izahı (sübutlar), əməliyyatlar.
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { api, type Alert, type Network } from '../api';
 import { RouteBadge, TrustMark } from '../components/Crowd';
@@ -65,7 +65,7 @@ function Evidence({ a }: { a: Alert }) {
   );
 }
 
-export function AlertCard({ a, net, now, onChanged }: { a: Alert; net: Network; now: number; onChanged: () => void }) {
+export function AlertCard({ a, net, now, onChanged, style }: { a: Alert; net: Network; now: number; onChanged: () => void; style?: CSSProperties }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -87,7 +87,7 @@ export function AlertCard({ a, net, now, onChanged }: { a: Alert; net: Network; 
   }
 
   return (
-    <article className={`alert a-${a.type} st-${a.status}`} aria-labelledby={`al-${a.id}`}>
+    <article className={`alert a-${a.type} st-${a.status}`} aria-labelledby={`al-${a.id}`} style={style}>
       <header>
         <span className="a-type">{ALERT_TYPE_TEXT[a.type]}</span>
         {route && <RouteBadge id={route.id} color={route.color} size="sm" />}

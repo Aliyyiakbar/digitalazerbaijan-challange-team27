@@ -25,6 +25,7 @@
   color: var(--text);
   font-size: var(--fs);
   line-height: 1.45;
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 .passenger ::selection {
   background: #1d6ff2;
@@ -45,6 +46,14 @@
   --chart-3: #4a9ff5;
   --focus: #4a9ff5;
   color-scheme: dark;
+}
+.passenger .panel,
+.passenger .sheet,
+.passenger .net-panel,
+.passenger .menu,
+.passenger .toast,
+.passenger .modal {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 .passenger.dark .sheet,
 .passenger.dark .panel,
@@ -173,7 +182,7 @@
   color: var(--accent);
 }
 .fab:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
 .menu-wrap {
   position: relative;
@@ -263,7 +272,7 @@
   height: 88dvh;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -8px 30px rgba(15, 20, 25, 0.12); /* taste-skill-ignore: üzən panel */
-  transition: transform 420ms var(--ease-drawer);
+  transition: transform 420ms var(--ease-drawer), background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   touch-action: pan-y;
 }
 .sheet.mobile.dragging {
@@ -305,6 +314,7 @@
   width: 420px;
   border-radius: 20px;
   box-shadow: 0 8px 30px rgba(15, 20, 25, 0.14); /* taste-skill-ignore: üzən panel */
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 .sheet.desktop .sheet-body {
   padding-top: 20px;
@@ -320,6 +330,19 @@
   margin: 0 auto;
   padding: 16px var(--pad) 40px;
   background: var(--surface);
+}
+.view-enter {
+  animation: rise 220ms var(--ease-out) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* --- görünüş elementləri --- */
@@ -355,7 +378,7 @@
   transition: transform 140ms var(--ease-out);
 }
 .back:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
 .sec-head {
   display: flex;
@@ -427,7 +450,7 @@
   opacity: 0.7;
 }
 .plan-entry:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 /* dayanacaq siyahısı (yaxınlıqda / axtarış) */
@@ -500,7 +523,7 @@
   transition: transform 140ms var(--ease-out);
 }
 .route-tile:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
 
 /* xətt çipləri dayanacaqda */
@@ -679,7 +702,7 @@
   transition: transform 140ms var(--ease-out);
 }
 .lvl-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 .lvl-btn.lvl-1 {
   background: var(--lvl1-bg);
@@ -746,7 +769,7 @@
 .btn-dark:active,
 .btn-soft:active,
 .btn-round:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 /* --- xətt: dayanacaq zaman xətti --- */
@@ -949,7 +972,7 @@
   fill: currentColor;
 }
 .star:active {
-  transform: scale(0.9);
+  transform: scale(0.97);
 }
 .pin.saved {
   color: #c98a00;
@@ -1016,7 +1039,7 @@
   color: #fff;
 }
 .pill-group button:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 .sort-box select {
   height: 36px;

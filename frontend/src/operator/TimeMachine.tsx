@@ -7,7 +7,7 @@ import { CrowdPill, RouteBadge } from '../components/Crowd';
 import { ALERT_TYPE_TEXT, CAUSE_TEXT, fmtClock, fmtScore, levelOf } from '../lib/format';
 import { LEVEL_COLOR } from './OperatorApp';
 
-export function TimeMachine({ net }: { net: Network }) {
+export function TimeMachine({ net, theme }: { net: Network; theme: 'light' | 'dark' }) {
   const [h, setH] = useState<History | null>(null);
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -83,7 +83,7 @@ export function TimeMachine({ net }: { net: Network }) {
           </section>
           <div className="dash-grid tm">
             <section className="panel mapp">
-              <MapView theme="dark" lines={lines} buses={(f?.buses ?? []).map((b) => ({ id: `${b.routeId}-${b.id}`, lat: b.lat, lon: b.lon, label: '', level: b.level }))} stops={[]} fit={{ key: "tm", points: [[40.33, 49.75], [40.5, 50.05]] }} label="Seçilmiş andakı sıxlıq xəritəsi" />
+              <MapView theme={theme} lines={lines} buses={(f?.buses ?? []).map((b) => ({ id: `${b.routeId}-${b.id}`, lat: b.lat, lon: b.lon, label: '', level: b.level }))} stops={[]} fit={{ key: "tm", points: [[40.33, 49.75], [40.5, 50.05]] }} label="Seçilmiş andakı sıxlıq xəritəsi" />
             </section>
             <section className="panel">
               <header className="panel-head">

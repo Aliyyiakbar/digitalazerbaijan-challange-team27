@@ -1,10 +1,12 @@
 // Operator modulu (AYNA Vahid Dispetçer Xidməti üçün analitika engine paneli).
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
-import { Bell, BellOff, FileCode2, FlaskConical, History, LayoutDashboard, Smartphone } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { Bell, BellOff, FileCode2, FlaskConical, History, LayoutDashboard, Moon, Smartphone, Sun } from 'lucide-react';
 import { api, useBackground, useLive, useNetwork, type Network, type Overview } from '../api';
 import { MapView, type MapLine } from '../components/MapView';
 import { fmtClock } from '../lib/format';
+import { useTweenNumber } from '../lib/motion';
+import { usePrefs, useResolvedTheme } from '../passenger/usePassenger';
 import { AlertCard } from './AlertCard';
 import { RouteTable } from './RouteTable';
 import { RouteDetail } from './RouteDetail';
@@ -62,7 +64,7 @@ export function SpeedControl({ speed, onChange }: { speed: number; onChange: () 
   );
 }
 
-function Dashboard({ net }: { net: Network }) {
+function Dashboard({ net, theme }: { net: Network; theme: 'light' | 'dark' }) {
   const { ov, error, reload } = useOverview();
   const [sound, setSound] = useState(() => localStorage.getItem('stb.sound') !== 'off');
   const [filter, setFilter] = useState<'open' | 'all'>('open');
@@ -107,6 +109,10 @@ function Dashboard({ net }: { net: Network }) {
   const background: MapLine[] = useMemo(() => (bg?.routes ?? []).filter((r) => !r.live).map((r) => ({ id: r.id, coords: r.coords, color: '#8a8c92', weight: 1.2, opacity: 0.3 })), [bg]);
   const highRoutes = routes.filter((r) => r.crowd.level === 3).length;
   const reports10 = routes.reduce((a, r) => a + r.crowd.n, 0);
+  const tweenHighRoutes = useTweenNumber(highRoutes);
+  const tweenOpenCount = useTweenNumber(openCount);
+  const tweenBusCount = useTweenNumber(buses.length);
+  const tweenReports = useTweenNumber(reports10);
   const mapBuses = buses.map((b) => ({ id: b.id, lat: b.lat, lon: b.lon, label: '', level: b.crowd.level, ring: b.bunchedFollower, reserve: b.reserve, dim: !!sel && sel !== b.routeId }));
   const selRoute = routes.find((r) => r.id === sel);
 
@@ -150,23 +156,23 @@ function Dashboard({ net }: { net: Network }) {
       </header>
 
       <dl className="kpis">
-        <div>
+        <div style={{ '--i': 0 } as CSSProperties}>
           <dt>Yüksək sıxlıqda</dt>
           <dd className={highRoutes ? 'neg' : ''}>
-            {highRoutes} <small>/ {routes.length} xətt</small>
+            {tweenHighRoutes} <small>/ {routes.length} xətt</small>
           </dd>
         </div>
-        <div>
+        <div style={{ '--i': 1 } as CSSProperties}>
           <dt>Açıq xəbərdarlıq</dt>
-          <dd>{openCount}</dd>
+          <dd>{tweenOpenCount}</dd>
         </div>
-        <div>
+        <div style={{ '--i': 2 } as CSSProperties}>
           <dt>Xətdə avtobus</dt>
-          <dd>{buses.length}</dd>
+          <dd>{tweenBusCount}</dd>
         </div>
-        <div>
+        <div style={{ '--i': 3 } as CSSProperties}>
           <dt>Son 10 dəq bildiriş</dt>
-          <dd>{reports10.toLocaleString('az')}</dd>
+          <dd>{tweenReports.toLocaleString('az')}</dd>
         </div>
       </dl>
 
@@ -184,7 +190,7 @@ function Dashboard({ net }: { net: Network }) {
             </div>
           </header>
           <div className="queue-list" aria-live="polite">
-            {alerts.length ? alerts.slice(0, 30).map((a) => <AlertCard key={a.id} a={a} net={net} now={now} onChanged={reload} />) : <p className="empty">Açıq xəbərdarlıq yoxdur. Xətt 10 dəqiqə fasiləsiz “yüksək” qalanda burada avtomatik tövsiyə görünəcək.</p>}
+            {alerts.length ? alerts.slice(0, 30).map((a, index) => <AlertCard key={a.id} a={a} net={net} now={now} onChanged={reload} style={{ '--i': Math.min(index, 12) } as CSSProperties} />) : <p className="empty">Açıq xəbərdarlıq yoxdur. Xətt 10 dəqiqə fasiləsiz “yüksək” qalanda burada avtomatik tövsiyə görünəcək.</p>}
           </div>
         </section>
 
@@ -212,7 +218,7 @@ function Dashboard({ net }: { net: Network }) {
               </li>
             </ul>
           </header>
-          <MapView theme="dark" background={background} lines={lines} buses={mapBuses} stops={[]} fit={{ key: 'all', points: [[40.33, 49.72], [40.52, 50.08]] }} label="Bakı: canlı xətlər sıxlığa görə rənglənib, boz xətlər canlı məlumatı olmayan AYNA xətləridir, nöqtələr avtobuslardır" />
+          <MapView theme={theme} background={background} lines={lines} buses={mapBuses} stops={[]} fit={{ key: 'all', points: [[40.33, 49.72], [40.52, 50.08]] }} label="Bakı: canlı xətlər sıxlığa görə rənglənib, boz xətlər canlı məlumatı olmayan AYNA xətləridir, nöqtələr avtobuslardır" />
         </section>
       </div>
 
@@ -230,18 +236,23 @@ function Dashboard({ net }: { net: Network }) {
 }
 
 export function OperatorApp() {
-  // dispetçer paneli tünddür: brauzerin üst zolağı da uyğun olsun
+  const [prefs, setPrefs] = usePrefs();
+  const theme = useResolvedTheme(prefs.theme);
+  const location = useLocation();
+  const { net, error } = useNetwork();
+
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     const prev = meta?.getAttribute('content');
-    meta?.setAttribute('content', '#131217');
+    const surface = getComputedStyle(document.querySelector('.operator')!).getPropertyValue('--surface').trim();
+    meta?.setAttribute('content', surface);
     return () => {
       if (prev) meta?.setAttribute('content', prev);
     };
-  }, []);
-  const { net, error } = useNetwork();
+  }, [theme]);
+
   return (
-    <div className="operator">
+    <div className={`operator${theme === 'dark' ? ' dark' : ''}`}>
       <a href="#op-main" className="skip">
         Əsas məzmuna keç
       </a>
@@ -262,6 +273,10 @@ export function OperatorApp() {
           <span className="rail-label">Demo</span>
         </NavLink>
         <span className="rail-gap" />
+        <button type="button" className="rail-theme" aria-label="Mövzunu dəyiş" title="Mövzunu dəyiş" onClick={() => setPrefs({ theme: theme === 'dark' ? 'light' : 'dark' })}>
+          {theme === 'dark' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
+          <span className="rail-label">Mövzu</span>
+        </button>
         <a href="/" title="Sərnişin tətbiqi">
           <Smartphone size={18} aria-hidden />
           <span className="rail-label">Sərnişin</span>
@@ -274,11 +289,13 @@ export function OperatorApp() {
       <main id="op-main" className="op-main" tabIndex={-1}>
         {error && <p className="report-err">{error}</p>}
         {net && (
-          <Routes>
-            <Route index element={<Dashboard net={net} />} />
-            <Route path="history" element={<TimeMachine net={net} />} />
-            <Route path="demo" element={<DemoPanel />} />
-          </Routes>
+          <div className="route-enter" key={location.pathname}>
+            <Routes>
+              <Route index element={<Dashboard net={net} theme={theme} />} />
+              <Route path="history" element={<TimeMachine net={net} theme={theme} />} />
+              <Route path="demo" element={<DemoPanel />} />
+            </Routes>
+          </div>
         )}
       </main>
     </div>

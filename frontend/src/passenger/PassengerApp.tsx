@@ -76,6 +76,7 @@ export function PassengerApp() {
   const cls = ['passenger', 'desk', showPanel && 'with-panel', theme === 'dark' && 'dark', prefs.simple && 'simple', prefs.contrast && 'contrast', prefs.large && 'large'].filter(Boolean).join(' ');
   const onStop = (id: string) => go({ kind: 'stop', id });
   const onRoute = (id: string) => go({ kind: 'route', id });
+  const viewKey = `${view.kind}:${'id' in view ? view.id : ''}`;
 
   const body = !net ? (
     <div className="view">{error ? <p className="hint err">{error}</p> : <p className="hint">Yüklənir…</p>}</div>
@@ -254,14 +255,18 @@ export function PassengerApp() {
       {prefs.simple ? (
         <main id="sheet" className="simple-page">
           {searchBar}
-          {body}
+          <div key={viewKey} className="view-enter">
+            {body}
+          </div>
         </main>
       ) : (
         <Sheet snap={snap} onSnap={setSnap} label="Məlumat paneli">
           <main id="sheet" tabIndex={-1}>
             {deskHead}
             {desktop && searchBar}
-            {body}
+            <div key={viewKey} className="view-enter">
+              {body}
+            </div>
           </main>
         </Sheet>
       )}

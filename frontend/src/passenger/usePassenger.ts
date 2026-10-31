@@ -58,8 +58,20 @@ function pathOf(v: View, base: string): string {
   return `${prefix}/${v.kind}`;
 }
 
-function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
+export function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
   const [p, setP] = useState<Prefs>(() => ({ simple: false, contrast: false, large: false, ...JSON.parse(localStorage.getItem('stb.prefs') ?? '{}') }));
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== 'stb.prefs') return;
+      try {
+        setP({ simple: false, contrast: false, large: false, ...JSON.parse(event.newValue ?? '{}') });
+      } catch {
+        setP({ simple: false, contrast: false, large: false });
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   return [
     p,
     (patch) => {
