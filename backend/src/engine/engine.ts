@@ -119,6 +119,7 @@ export class Engine extends EventEmitter {
   private busViews = new Map<string, BusView>();
   private stopCrowd = new Map<string, CrowdEstimate>();
   private lastSnapshot = 0;
+  private lastForecastAlert = 0;
   private timer: NodeJS.Timeout | null = null;
   private busCounter = new Map<string, number>();
   private ipSalt = randomUUID();
@@ -173,12 +174,18 @@ export class Engine extends EventEmitter {
   private async seedNetwork(): Promise<void> {
     const [{ n }] = await this.db.query<{ n: string }>('select count(*)::text as n from routes');
     if (Number(n) > 0) return;
-    for (const s of this.net.stops.values()) await this.db.query('insert into stops(id,name,lat,lon) values ($1,$2,$3,$4) on conflict do nothing', [s.id, s.name, s.lat, s.lon]);
-    for (const r of this.net.routes.values()) {
-      await this.db.query('insert into routes(id,name,kind,color,headway_min,capacity) values ($1,$2,$3,$4,$5,$6) on conflict do nothing', [r.id, r.name, r.kind, r.color, r.headwayMin, r.capacity]);
-      for (const ls of r.loopStops)
-        await this.db.query('insert into route_stops(route_id,seq,stop_id,dir,dist_m) values ($1,$2,$3,$4,$5) on conflict do nothing', [r.id, ls.seq, ls.stopId, ls.dir, ls.d]);
-    }
+    // toplu insert: ~1700 dayanacaq və ~6000 xətt-dayanacaq sətri
+    const bulk = async (table: string, cols: string[], rows: unknown[][]) => {
+      for (let i = 0; i < rows.length; i += 400) {
+        const part = rows.slice(i, i + 400);
+        const params: unknown[] = [];
+        const values = part.map((row) => `(${row.map((v) => (params.push(v), `$${params.length}`)).join(',')})`).join(',');
+        await this.db.query(`insert into ${table}(${cols.join(',')}) values ${values} on conflict do nothing`, params);
+      }
+    };
+    await bulk('stops', ['id', 'name', 'lat', 'lon'], [...this.net.stops.values()].map((s) => [s.id, s.name, s.lat, s.lon]));
+    await bulk('routes', ['id', 'name', 'kind', 'color', 'headway_min', 'capacity'], [...this.net.routes.values()].map((r) => [r.id, r.name, r.kind, r.color, r.headwayMin, r.capacity]));
+    await bulk('route_stops', ['route_id', 'seq', 'stop_id', 'dir', 'dist_m'], [...this.net.routes.values()].flatMap((r) => r.loopStops.map((ls) => [r.id, ls.seq, ls.stopId, ls.dir, ls.d])));
   }
 
   async loadForecast(): Promise<void> {
@@ -258,11 +265,13 @@ export class Engine extends EventEmitter {
     const raw = moved / dt;
     bus.speed = bus.speed * 0.6 + raw * 0.4;
     const rt = this.rt.get(route.id)!;
-    if (raw > 1.5 && raw < 30) rt.speedSamples.push({ ts: now, v: raw });
+    const wasDwelling = bus.dwellingAt != null;
 
     // dayanma aşkarlanması
     const near = nearestLoopStop(route.loopStops, d, L);
     const atStop = near && near.dist <= DWELL_RADIUS_M && raw < 1.2;
+    // hərəkət sürəti yalnız dayanacaqlar arasında ölçülür (dayanma müddəti sürətə qarışmasın)
+    if (!wasDwelling && raw > 1.5 && raw < 30) rt.speedSamples.push({ ts: now, v: raw });
     const key = near ? `${near.stop.stopId}#${near.stop.seq}` : null;
     if (atStop && bus.dwellingAt == null) {
       bus.dwellingAt = key;
@@ -431,6 +440,7 @@ export class Engine extends EventEmitter {
     const known = [...dwellAvg.values()].filter((x): x is number => x != null).sort((a, b) => a - b);
     const baseDwell = known.length >= 3 ? known[Math.floor(known.length / 2)] : null;
 
+    const forecastCands: Array<{ route: RouteInfo; rt: RouteRuntime; p15: number | null; p30: number; now: number | null }> = [];
     for (const route of this.net.routes.values()) {
       const rt = this.rt.get(route.id)!;
       const movingSpeed = rt.speedSamples.length >= 3 ? rt.speedSamples.reduce((a, s) => a + s.v, 0) / rt.speedSamples.length : null;
@@ -542,24 +552,29 @@ export class Engine extends EventEmitter {
 
       // --- əsas qayda: 10 dəqiqə davamlı yüksək
       const res = this.rule.evaluate(route.id, crowd, now);
-      if (res.fire) newAlerts.push(this.reserveAlert(route, crowd, res.highForMs, cause, p30, ripple, now));
+      if (res.fire) {
+        // bu xətt üçün hələ icra olunmamış tövsiyə varsa, yenisini yaratma — mövcudu yenilə
+        const open = this.alerts.find((a) => a.type === 'reserve' && a.routeId === route.id && a.status !== 'resolved' && !a.dispatchedBusId);
+        if (open) {
+          const fresh = this.reserveAlert(route, crowd, res.highForMs, cause, p30, ripple, now);
+          open.explanation = fresh.explanation;
+          open.confidence = fresh.confidence;
+          open.badge = fresh.badge;
+          open.recommendation = fresh.recommendation;
+          this.db.query('update alerts set explanation = $2, confidence = $3, badge = $4, recommendation = $5, updated_at = now() where id = $1', [open.id, JSON.stringify(open.explanation), open.confidence, open.badge, open.recommendation]).catch(() => {});
+          await this.store.publish({ type: 'alert.update', data: open });
+        } else newAlerts.push(this.reserveAlert(route, crowd, res.highForMs, cause, p30, ripple, now));
+      }
 
-      // --- qabaqlayıcı proqnoz xəbərdarlığı
-      if (p30 != null && p30 >= HIGH_SCORE && (crowd.score == null || crowd.score < HIGH_SCORE - 0.2) && this.cooldownOk(rt, 'forecast', now, 30 * 60_000))
-        newAlerts.push(
-          this.makeAlert('forecast', route.id, now, `${route.id}: 30 dəqiqə sonra yüksək sıxlıq gözlənilir`, `Proqnoz ${p30.toFixed(2)} bal göstərir. Ehtiyat avtobusu indidən hazır vəziyyətə gətirin.`, null, 'none', {
-            p15,
-            p30,
-            now: crowd.score,
-            model: 'baza (xətt × 15 dəq × gün növü) + EWMA düzəlişi',
-            mae: this.forecastMae,
-          }),
-        );
+      // --- qabaqlayıcı proqnoz xəbərdarlığı: namizədlər toplanır, dövrün sonunda şəbəkə üzrə
+      // 5 dəqiqədə ən çox bir xəbərdarlıq — ən riskli xətt üçün — yaradılır (xəbərdarlıq selinin qarşısı)
+      if (p30 != null && p30 >= HIGH_SCORE + 0.1 && (crowd.score == null || crowd.score < HIGH_SCORE - 0.2) && (rt.lastAlert.forecast == null || now - rt.lastAlert.forecast >= 60 * 60_000))
+        forecastCands.push({ route, rt, p15, p30, now: crowd.score });
 
       // --- toplanma xəbərdarlığı (cüt ən azı 3 dəqiqə toplanmış qalıbsa)
       if (headway.pairs.length) rt.bunchSince ??= now;
       else rt.bunchSince = null;
-      if (headway.pairs.length && rt.bunchSince != null && now - rt.bunchSince >= 3 * 60_000 && this.cooldownOk(rt, 'bunching', now, 15 * 60_000)) {
+      if (headway.pairs.length && headway.cv > 0.5 && rt.bunchSince != null && now - rt.bunchSince >= 5 * 60_000 && this.cooldownOk(rt, 'bunching', now, 20 * 60_000)) {
         const p = headway.pairs[0];
         const f = this.buses.get(p.follower);
         const l = this.buses.get(p.leader);
@@ -629,6 +644,22 @@ export class Engine extends EventEmitter {
         attack: { active: underAttack, signals: underAttack ? rt.attackSignals : [] },
         ripple,
       });
+    }
+
+    if (forecastCands.length && now - this.lastForecastAlert >= 5 * 60_000) {
+      const c = forecastCands.sort((a, b) => b.p30 - a.p30)[0];
+      this.lastForecastAlert = now;
+      c.rt.lastAlert.forecast = now;
+      newAlerts.push(
+        this.makeAlert('forecast', c.route.id, now, `${c.route.id}: 30 dəqiqə sonra yüksək sıxlıq gözlənilir`, `Proqnoz ${c.p30.toFixed(2)} bal göstərir. Ehtiyat avtobusu indidən hazır vəziyyətə gətirin.`, null, 'none', {
+          p15: c.p15,
+          p30: c.p30,
+          now: c.now,
+          others: forecastCands.length - 1,
+          model: 'baza (xətt × 15 dəq × gün növü, real həftə günü əmsalları) + EWMA düzəlişi',
+          mae: this.forecastMae,
+        }),
+      );
     }
 
     await this.store.prune(now - WINDOW_MS - 5 * 60_000, [...this.net.routes.keys()]);

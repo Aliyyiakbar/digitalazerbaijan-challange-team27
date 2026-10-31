@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 export interface Pos {
   lat: number;
   lon: number;
@@ -23,4 +25,49 @@ export function distM(a: { lat: number; lon: number }, b: { lat: number; lon: nu
   const dLon = r(b.lon - a.lon);
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+
+export type LocStatus = 'idle' | 'locating' | 'on' | 'denied' | 'unavailable';
+
+/** İstifadəçinin yeri: icazə bir dəfə verilibsə, növbəti açılışda avtomatik izlənir. */
+export function useUserLocation() {
+  const [pos, setPos] = useState<Pos | null>(null);
+  const [status, setStatus] = useState<LocStatus>('idle');
+  const watch = useRef<number | null>(null);
+  const start = useCallback(() => {
+    if (!('geolocation' in navigator) || !window.isSecureContext) {
+      setStatus('unavailable');
+      return;
+    }
+    if (watch.current != null) return;
+    setStatus('locating');
+    watch.current = navigator.geolocation.watchPosition(
+      (p) => {
+        setPos({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy });
+        setStatus('on');
+        localStorage.setItem('stb.loc', 'on');
+      },
+      (e) => {
+        setStatus(e.code === e.PERMISSION_DENIED ? 'denied' : 'unavailable');
+        if (watch.current != null) navigator.geolocation.clearWatch(watch.current);
+        watch.current = null;
+      },
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 15_000 },
+    );
+  }, []);
+  useEffect(() => {
+    if (localStorage.getItem('stb.loc') === 'on') start();
+    return () => {
+      if (watch.current != null) navigator.geolocation.clearWatch(watch.current);
+    };
+  }, [start]);
+  return { pos, status, start };
+}
+
+export function walkMin(m: number): string {
+  return `${Math.max(1, Math.round(m / 75))} dəq piyada`;
+}
+export function fmtDist(m: number): string {
+  return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`;
 }

@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { api, type BusView, type Network, type RouteView } from '../api';
 import { CrowdPill, RouteBadge, TrustMark } from '../components/Crowd';
 import { ForecastChart, type FPoint } from '../components/ForecastChart';
+import { RidershipChart } from '../components/RidershipChart';
 import { CAUSE_TEXT, fmtMin, fmtScore, pct } from '../lib/format';
 
 export function RouteDetail({ r, buses, net, now, onClose, onDispatched }: { r: RouteView; buses: BusView[]; net: Network; now: number; onClose: () => void; onDispatched: () => void }) {
@@ -51,6 +52,9 @@ export function RouteDetail({ r, buses, net, now, onClose, onDispatched }: { r: 
             <span className="v">{r.highForMs >= 60_000 ? `${Math.floor(r.highForMs / 60_000)} dəq` : '—'}</span>
           </div>
         </div>
+        <p className="lead">
+          {r.buses} avtobus xətdə (plan {r.plannedBuses}) · orta sürət {r.speedKmh ?? '—'} km/s · son 10 dəqiqədə {r.crowd.n} bildiriş, {r.crowd.devices} cihaz
+        </p>
         <h3>Niyə bu qiymət?</h3>
         <ul className="reasons">
           {r.crowd.reasons.map((x) => (
@@ -168,6 +172,18 @@ export function RouteDetail({ r, buses, net, now, onClose, onDispatched }: { r: 
         ) : (
           <p className="fine">Proqnoz yüklənir…</p>
         )}
+      </section>
+
+      <section>
+        <h3>Real gediş statistikası</h3>
+        <p className="lead">
+          Gündə orta <strong>{route.ridership.recentDaily.toLocaleString('az')}</strong> gediş (son 30 gün), ilin əvvəlindən {route.ridership.meanDaily.toLocaleString('az')}. Həftəsonu iş gününün{' '}
+          {Math.round((((route.ridership.dow[0] + route.ridership.dow[6]) / 2) / ((route.ridership.dow[1] + route.ridership.dow[2] + route.ridership.dow[3] + route.ridership.dow[4] + route.ridership.dow[5]) / 5)) * 100)}%-i qədərdir.
+        </p>
+        <RidershipChart series={route.ridership.series} />
+        <p className="fine">
+          Mənbə: BakuBus marşrutları üzrə gündəlik gedişlər, {route.ridership.from.split('-').reverse().join('.')}–{route.ridership.to.split('-').reverse().join('.')}, opendata.az (CC BY). Validasiya sayıdır, unikal sərnişin deyil. Simulyatorda tələbat və proqnoz bu rəqəmlərlə kalibrlənib.
+        </p>
       </section>
 
       <section>

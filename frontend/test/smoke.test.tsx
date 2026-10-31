@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import network from './fixtures/network.json';
+import background from './fixtures/background.json';
 import overview from './fixtures/overview.json';
 import arrivals from './fixtures/arrivals.json';
 import plan from './fixtures/plan.json';
@@ -19,6 +20,7 @@ const posted: Array<{ url: string; body: unknown }> = [];
 
 beforeAll(() => {
   const routes: Array<[RegExp, unknown]> = [
+    [/\/api\/network\/background/, background],
     [/\/api\/network/, network],
     [/\/api\/operator\/overview/, overview],
     [/\/api\/stops\/.+\/arrivals/, arrivals],
@@ -50,6 +52,10 @@ beforeAll(() => {
     close() {}
   }
   vi.stubGlobal('WebSocket', FakeWS);
+  // jsdom-da canvas yoxdur: Leaflet-in canvas renderer-i üçün heç nə etməyən 2D kontekst
+  const noop = () => {};
+  const ctx = new Proxy({}, { get: (_t, k) => (k === 'canvas' ? document.createElement('canvas') : k === 'measureText' ? () => ({ width: 0 }) : noop) });
+  HTMLCanvasElement.prototype.getContext = (() => ctx) as unknown as typeof HTMLCanvasElement.prototype.getContext;
   // Leaflet jsdom-da ölçü tələb edir
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 800 });
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 600 });
@@ -68,42 +74,52 @@ function at(path: string, el: React.ReactNode) {
 }
 
 describe('sərnişin modulu', () => {
-  it('dayanacaq, gəlişlər və ETA görünür', async () => {
+  it('ana səhifə: axtarış, "Haraya gedirsiniz?", dayanacaqlar və xətlər', async () => {
+    localStorage.clear();
     at('/', <PassengerApp />);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Gənclik' })).toBeTruthy();
-    await waitFor(() => expect(document.querySelectorAll('.arr').length).toBeGreaterThan(0));
-    expect(screen.getAllByText(/istiqamətində/).length).toBeGreaterThan(0);
-    // naviqasiya və əlçatanlıq
-    expect(screen.getByRole('navigation', { name: 'Bölmələr' })).toBeTruthy();
-    expect(document.querySelector('[aria-live="polite"]')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Haraya gedirsiniz/ })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /dayanacaqlar/ })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Dayanacaq və ya xətt axtar/ }).length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.route-tile').length).toBeGreaterThan(50);
+    expect(screen.getByRole('button', { name: 'Yerimi göstər' })).toBeTruthy();
   });
 
-  it('avtobusu açıb sıxlığı bildirmək mümkündür', async () => {
+  it('dayanacaq → gələn avtobuslar → sıxlığı bildir', async () => {
+    localStorage.clear();
     at('/', <PassengerApp />);
-    await waitFor(() => expect(document.querySelectorAll('.arr-main').length).toBeGreaterThan(0));
-    fireEvent.click(document.querySelector('.arr-main')!);
+    await waitFor(() => expect(document.querySelector('.stop-list button')).toBeTruthy());
+    fireEvent.click(document.querySelector('.stop-list button')!);
+    expect(await screen.findByRole('heading', { level: 1 })).toBeTruthy();
+    await waitFor(() => expect(document.querySelectorAll('.arr-row').length).toBeGreaterThan(0));
+    fireEvent.click(document.querySelector('.arr-row')!);
     const group = await screen.findByRole('group', { name: /vəziyyət necədir|nə qədər adam/ });
     fireEvent.click(within(group).getByRole('button', { name: /Çox sıx/ }));
     expect(await screen.findByText(/Təşəkkürlər/)).toBeTruthy();
-    const rep = posted.find((p) => p.url.includes('/api/reports'));
-    expect(rep?.body).toMatchObject({ context: 'bus', level: 'high' });
+    expect(posted.find((p) => p.url.includes('/api/reports'))?.body).toMatchObject({ context: 'bus', level: 'high' });
+    expect(document.querySelector('[aria-live="polite"]')).toBeTruthy();
   });
 
-  it('marşrut planı və xətlər bölmələri açılır', async () => {
+  it('xətt: dayanacaqlar zaman xətti; planlayıcı və axtarış açılır', async () => {
+    localStorage.clear();
     at('/', <PassengerApp />);
-    fireEvent.click(await screen.findByRole('button', { name: /Marşrut/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /^14:/ }))[0]);
+    await waitFor(() => expect(document.querySelectorAll('.timeline li').length).toBeGreaterThan(5));
+    fireEvent.click(screen.getByRole('button', { name: 'Geri' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Haraya gedirsiniz/ }));
     expect(await screen.findByRole('heading', { name: 'Marşrut planı' })).toBeTruthy();
-    await waitFor(() => expect(document.querySelectorAll('.journey').length).toBeGreaterThan(0));
-    fireEvent.click(screen.getByRole('button', { name: /Xətlər/ }));
-    expect(await screen.findByRole('radiogroup', { name: 'Xətt seçin' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Geri' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /Dayanacaq və ya xətt axtar/ }))[0]);
+    fireEvent.change(await screen.findByPlaceholderText(/Dayanacaq və ya xətt/), { target: { value: 'metro' } });
+    await waitFor(() => expect(document.querySelectorAll('.result-list li').length).toBeGreaterThan(0));
   });
 
   it('sadə rejim xəritəni gizlədir', async () => {
+    localStorage.clear();
     localStorage.setItem('stb.prefs', JSON.stringify({ simple: true }));
     at('/', <PassengerApp />);
-    await screen.findByRole('heading', { level: 1, name: 'Gənclik' });
+    await screen.findByRole('button', { name: /Haraya gedirsiniz/ });
     expect(document.querySelector('.p-map')).toBeNull();
-    localStorage.removeItem('stb.prefs');
+    localStorage.clear();
   });
 });
 
@@ -111,7 +127,10 @@ describe('operator modulu', () => {
   it('panel: xəbərdarlıqlar, xəritə, xətlər cədvəli', async () => {
     at('/operator', <OperatorApp />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Dispetçer paneli' })).toBeTruthy();
-    await waitFor(() => expect(document.querySelectorAll('.rtable tbody tr').length).toBe(10));
+    await waitFor(() => expect(document.querySelector('.rtable')).toBeTruthy());
+    fireEvent.click(screen.getByRole('tab', { name: /Hamısı \d+/ }));
+    await waitFor(() => expect(document.querySelectorAll('.rtable tbody tr').length).toBeGreaterThan(50));
+    expect(screen.getByText('Yüksək sıxlıqda')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Xəbərdarlıqlar' })).toBeTruthy();
     expect(document.querySelectorAll('.alert').length).toBeGreaterThan(0);
   });
@@ -121,8 +140,11 @@ describe('operator modulu', () => {
     await waitFor(() => expect(document.querySelectorAll('.alert').length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByRole('button', { name: /Niyə\?/ })[0]);
     expect(document.querySelector('.evidence')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: /Hamısı \d+/ }));
     fireEvent.click(screen.getAllByRole('button', { name: /təfərrüatı/ })[0]);
     expect(await screen.findByRole('heading', { name: /Sıxlıq dalğası/ })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Real gediş statistikası' })).toBeTruthy();
+    expect(document.querySelectorAll('.rchart .bar').length).toBeGreaterThan(30);
     expect(document.querySelectorAll('.ripple tbody tr').length).toBeGreaterThan(0);
   });
 

@@ -241,9 +241,66 @@ table {
 .bus-marker.lvl-3 {
   background: var(--lvl3-mark);
 }
+/* etiketli avtobus (sərnişin xəritəsi): xəttin rəngi + sağda sıxlıq nöqtəsi */
+.bus-marker.labeled {
+  height: 24px;
+  padding: 0 8px 0 7px;
+  gap: 5px;
+  grid-auto-flow: column;
+  background: var(--route, #333);
+  font-size: 12px;
+  font-weight: 700;
+}
+.bus-marker.labeled::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c9ced6;
+  box-shadow: 0 0 0 1.5px #fff; /* taste-skill-ignore: marker daxili ayırıcı halqa */
+}
+.bus-marker.labeled.lvl-1::after {
+  background: #3ddc84;
+}
+.bus-marker.labeled.lvl-2::after {
+  background: #ffc233;
+}
+.bus-marker.labeled.lvl-3::after {
+  background: #ff4d5e;
+}
 .bus-marker.ring {
   outline: 2px dashed #fff;
   outline-offset: 2px;
+}
+/* istifadəçinin yeri: mavi nöqtə + yumşaq nəbz */
+.user-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1d6ff2;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); /* taste-skill-ignore: xəritə üzərində üzən marker */
+}
+.user-dot::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  background: #1d6ff2;
+  opacity: 0.25;
+  animation: pulse 2.4s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+@keyframes pulse {
+  from {
+    transform: scale(0.6);
+    opacity: 0.35;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
 }
 .bus-marker.reserve {
   border-style: double;

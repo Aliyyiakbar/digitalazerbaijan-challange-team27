@@ -18,6 +18,15 @@ export interface LoopStop {
   d: number;
   towards: string;
 }
+export interface Ridership {
+  meanDaily: number;
+  recentDaily: number;
+  days: number;
+  from: string;
+  to: string;
+  dow: number[];
+  series: Array<[string, number]>;
+}
 export interface Route {
   id: string;
   name: string;
@@ -25,14 +34,21 @@ export interface Route {
   color: string;
   headwayMin: number;
   capacity: number;
+  plannedBuses: number;
+  ridership: Ridership;
   stopIds: string[];
   forward: [number, number][];
   backward: [number, number][];
   loopStops: LoopStop[];
 }
 export interface Network {
+  defaultStop: string;
+  sources: Array<{ file: string; page: string; licence: string; publisher: string }>;
   stops: Stop[];
   routes: Route[];
+}
+export interface Background {
+  routes: Array<{ id: string; live: boolean; coords: [number, number][] }>;
 }
 export interface Crowd {
   score: number | null;
@@ -284,6 +300,14 @@ export async function flushQueue(): Promise<number> {
 }
 
 // ---------------------------------------------------------------- hooks
+
+export function useBackground() {
+  const [bg, setBg] = useState<Background | null>(null);
+  useEffect(() => {
+    api.get<Background>('/api/network/background').then(setBg).catch(() => {});
+  }, []);
+  return bg;
+}
 
 export function useNetwork() {
   const [net, setNet] = useState<Network | null>(null);

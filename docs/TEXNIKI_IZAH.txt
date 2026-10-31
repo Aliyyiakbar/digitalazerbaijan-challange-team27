@@ -83,9 +83,32 @@ Engine-in hər dövrü (1 saniyə):
   - İsti məlumat  |  Redis 7  |  HASH bus:pos (son mövqelər), ZSET win:{route} (10 dəqiqəlik sürüşən pəncərə, score = vaxt), rl:* (spam limiti, TTL). Bütün əməliyyatlar O(log n).
   - Daimi məlumat  |  PostgreSQL 16 (Docker), PGlite (lokal)  |  Bildirişlərin auditi, xəbərdarlıqların tarixçəsi, snapshot-lar (vaxt maşını və proqnoz). PGlite eyni SQL-i WASM-da işlədir: lokal demo üçün quraşdırma tələb olunmur.
   - Frontend  |  React 19, Vite, react-leaflet, vite-plugin-pwa  |  PWA: telefona quraşdırılır, offline açılır, bildirişlər növbəyə yığılır. Leaflet yüngüldür, OSM ilə işləyir.
+  - Açıq məlumat  |  opendata.az (AYNA, Bakı Metropoliteni)  |  Real xətlər, dayanacaqlar və gündəlik gedişlər.
   - Xəritə  |  OpenStreetMap plitələri  |  Açıq, pulsuz, API açarı tələb etmir; tünd tema CSS filtri ilə. Xətt həndəsəsi OSRM ilə real yollar üzrə çəkilib.
   - Açıq standart  |  GTFS + GTFS-Realtime (protobuf)  |  Sıxlıq məlumatını AYNA MaaS, Google Maps və digər tətbiqlərə standart formatda ötürməyə imkan verir.
   - Konteyner  |  Docker Compose: 5 servis  |  postgres, redis, backend, simulator, frontend (nginx).
+
+Real məlumat (opendata.az):
+
+  - Məlumat  |  Nəşr edən, lisenziya  |  İstifadə
+  - Avtobusların hərəkət trayektoriyası (KMZ, 243 xətt, 27.11.2025)  |  AYNA, CC0  |  Xətlərin həndəsəsi. 63 canlı xətt + 180 fon xətti
+  - BakuBus dayanacaqlarının koordinatları (CSV, 3 590)  |  Bakı Metropoliteni, lisenziya göstərilməyib  |  1 719 dayanacaq canlı xətlərə bağlanıb
+  - BakuBus xətləri üzrə gündəlik gedişlər 2026 (CSV, 65 xətt, 01.01–30.09)  |  Bakı Metropoliteni, CC BY  |  Hər xəttin tələbatı, avtobus sayı və interval, həftə günü əmsalları, proqnoz bazası, operator panelində 90 günlük qrafik
+
+Çevirmə scripts/import-opendata.mjs ilə aparılır:
+1. KMZ açılır və hissələr birləşdirilir.
+2. Dövrə sadələşdirilir (RDP, 4 m).
+3. Dönüş nöqtəsi başlanğıcdan ən uzaq nöqtə kimi götürülür.
+4. Dayanacaqlar xəttə bağlanır: ≤25 m məsafə, hər keçid üçün ən yaxın nöqtə, 70 m daxilində küçənin qarşı tərəfindəki təkrar dayanacaq atılır.
+5. Xəttin adı uc dayanacaqlardan qurulur.
+6. Avtobus sayı belə hesablanır: son 30 günün orta gedişi / 1 300, 3–14 aralığında.
+7. Simulyatorda dayanacağa sərnişin gəlmə intensivliyi belə hesablanır:
+
+       λ = DEMAND_SCALE × gündəlik_gediş × həftə_günü_əmsalı × saat_profili / (dayanacaq_sayı × ∫profil)
+
+   Bundan sonra kalibrləmə aparılıb: səhər pikində avtobusların ~25%-i "yüksək", ~45%-i "orta", gün ortasında əksəriyyəti "aşağı".
+
+Mənbələrdə kiril "ә" hərfi Azərbaycan "ə"-si ilə əvəz olunur.
 
 Məlumat modeli:
 - PostgreSQL: stops, routes, route_stops, buses, devices, crowd_reports, alerts, snapshots, stop_dwell_events.
@@ -207,7 +230,7 @@ Marşrut planı: şəbəkə kiçikdir və cədvəl intervala əsaslanır. Ona g�
 6. İSTİFADƏÇİ İNTERFEYSİ
 ========================
 
-Sərnişin (PWA) gün işığında, telefonda istifadə üçün açıq "ledger" üslubundadır.
+Sərnişin (PWA) AYNA MaaS üslubundadır: tam ekran xəritə, üstdə axtarış, altda sürüşən panel. Masaüstündə panel solda durur. Hər ekranda bir iş görülür: ana səhifə (yaxınlıqdakı dayanacaqlar məsafə ilə, "Haraya gedirsiniz?", xətlər), dayanacaq (gələn avtobuslar), xətt (dayanacaqların zaman xətti), marşrut planı. İstifadəçinin yeri mavi nöqtə və dəqiqlik dairəsi ilə göstərilir. Xətlər öz rəngindədir, bütün AYNA şəbəkəsi fonda görünür.
 - Tək rəng (#1d5fbf) yalnız növbəti avtobusun ETA-sındadır.
 - Sıxlıq yalnız rənglə yox, sütun sayı (1/2/3) və mətnlə kodlanır (WCAG 1.4.1).
 - Düymələr ≥ 40–72 px-dir (WCAG 2.2 hədəf ölçüsü ≥24 px).
@@ -245,9 +268,9 @@ Dizayn qərarlarında taste-skill (app-screen qaydaları), impeccable (operate m
 9. MƏHDUDİYYƏTLƏR
 =================
 
-1. Məlumat simulyasiyadır. AYNA-nın açıq GPS/AVL axını yoxdur. Sərnişin davranışı modelləşdirilib: gəliş intensivliyi günün saatına görədir, dayanma minənlərin sayına görədir, toplanma təbii şəkildə yaranır.
-2. Adi xətlərin (6, 17, 61, 88) dayanacaq siyahısı təxminidir. M1–M6 xətlərinin uc dayanacaqları AYNA elanındandır. Koordinatlar OpenStreetMap-dəndir.
-3. Proqnoz sintetik tarixçə ilə öyrədilib.
+1. Avtobusların anlıq hərəkəti və bildirişlər simulyasiyadır. AYNA-nın açıq real vaxt GPS/AVL axını yoxdur. Simulyator real gündəlik gedişlərlə kalibrlənib. Gəliş intensivliyi günün saatına görədir, dayanma minənlərin sayına görədir, toplanma təbii şəkildə yaranır.
+2. Xətt ↔ dayanacaq əlaqəsi həndəsi yaxınlıqla qurulub, rəsmi siyahı deyil. Xətt həndəsəsi 27.11.2025 snapshot-udur. Avtobus sayı gediş sayından təxmin edilib.
+3. Proqnoz yarımsintetikdir. Xəttin yükü və həftə günü əmsalları realdır, saatlıq profil sintetikdir.
 4. Hazırlandığı mühitdə Docker və brauzer işə salına bilmədi (sandbox məhdudiyyəti). Docker faylları yazılıb, vizual yoxlama isə lint və jsdom testləri ilə əvəz olunub.
 
 10. GƏLƏCƏK İNKİŞAF
@@ -285,4 +308,7 @@ MƏNBƏLƏR
 15. Wardman & Whelan (2011), Twenty Years of Rail Crowding Valuation Studies. https://ideas.repec.org/a/taf/transr/v31y2011i3p379-398.html
 16. GTFS Realtime Reference. https://gtfs.org/documentation/realtime/reference/
 17. WCAG 2.2 yenilikləri, W3C. https://w3.org/WAI/standards-guidelines/wcag/new-in-22/
-18. Moovit: crowdedness reports (son 10 dəqiqə). https://moovit.com/blog/how-crowded-is-your-bus-know-in-real-time-and-help-others-by-self-reporting/
+18. Moovit: crowdedness reports (son 10 dəqiqə).
+19. opendata.az: Avtobusların hərəkət trayektoriyası (AYNA, CC0). https://opendata.az/dataset/avtobuslarin-hereket-trayektoriyasi
+20. opendata.az: BakuBus dayanacaqlarının coğrafi koordinatları (Bakı Metropoliteni). https://opendata.az/dataset/bakubus-mmc-ye-mexsus-avtobus-marsrutlari-uzre-dayanacaqlarin-cografi-koordinatlari
+21. opendata.az: BakuBus marşrutları üzrə gündəlik gedişlər 2026 (Bakı Metropoliteni, CC BY). https://opendata.az/dataset/bakubus-marsrutlari-uzre-gundelik-sernisin-gedislerinin-sayi-2026 https://moovit.com/blog/how-crowded-is-your-bus-know-in-real-time-and-help-others-by-self-reporting/

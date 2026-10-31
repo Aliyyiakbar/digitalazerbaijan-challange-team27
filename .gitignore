@@ -6,3 +6,5 @@ dev-dist/
 .taste-skill/
 *.log
 .DS_Store
+.claude/
+scripts/.cache/

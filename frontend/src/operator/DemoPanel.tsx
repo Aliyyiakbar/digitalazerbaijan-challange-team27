@@ -12,11 +12,11 @@ interface SimState {
 }
 
 const SCENARIOS: Array<{ name: string; route: string; title: string; shows: string }> = [
-  { name: 'peak', route: 'M6', title: 'Pik saat: M6 həddən artıq dolur', shows: 'Əsas qayda. Tələbat 3 dəfə artır, xətt 10 dəqiqə “yüksək” qalanda avtomatik “əlavə ehtiyat avtobus” tövsiyəsi yaranır. ×30 sürətdə təxminən 30 saniyə.' },
-  { name: 'fake', route: 'M1', title: 'Boş avtobusa “çox sıx” deyirlər', shows: 'Kənar hal. Toplanmış cütün arxasındakı boş avtobusa 6 cihaz “yüksək” göndərir, 4-ü evdən. Etibar düşür, nişan “yoxlanılmalı/şübhəli” olur, sərnişinə təsdiq sualı çıxır.' },
-  { name: 'bots', route: 'M3', title: 'Bot hücumu', shows: 'Saniyədə bir bildiriş, 2 IP, koordinatsız, yeni cihazlar. Sistem hücumu tanıyır, bildirişləri karantinə alır və xəbərdarlıq verir.' },
+  { name: 'peak', route: '14', title: 'Pik saat: 14 nömrəli xətt həddən artıq dolur', shows: 'Əsas qayda. Real məlumata görə bir avtobusa ən çox gediş düşən xətt (gündə ~28 800). Tələbat 3 dəfə artır, xətt 10 dəqiqə “yüksək” qalanda avtomatik “əlavə ehtiyat avtobus” tövsiyəsi yaranır. ×30 sürətdə təxminən 30 saniyə.' },
+  { name: 'fake', route: '5', title: 'Boş avtobusa “çox sıx” deyirlər', shows: 'Kənar hal. Toplanmış cütün arxasındakı boş avtobusa 6 cihaz “yüksək” göndərir, 4-ü evdən. Etibar düşür, nişan “yoxlanılmalı/şübhəli” olur, sərnişinə təsdiq sualı çıxır.' },
+  { name: 'bots', route: 'M2', title: 'Bot hücumu', shows: 'Saniyədə bir bildiriş, 2 IP, koordinatsız, yeni cihazlar. Sistem hücumu tanıyır, bildirişləri karantinə alır və xəbərdarlıq verir.' },
   { name: 'traffic', route: '6', title: 'Tıxac: 6 nömrəli xətt', shows: 'Sürət 30%-ə düşür, dayanma adi qalır. Səbəb “tıxac” kimi təsnif olunur və əlavə avtobusun kömək etməyəcəyi deyilir.' },
-  { name: 'bunch', route: 'M2', title: 'Avtobuslar toplanır', shows: 'İki avtobus bir-birinin ardınca düşür. Panel arxadakını neçə dəqiqə saxlamağı tövsiyə edir; sərnişinə “növbətini gözlə” deyilir.' },
+  { name: 'bunch', route: '88', title: 'Avtobuslar toplanır', shows: 'İki avtobus bir-birinin ardınca düşür. Panel arxadakını neçə dəqiqə saxlamağı tövsiyə edir; sərnişinə “növbətini gözlə” deyilir.' },
 ];
 
 export function DemoPanel() {

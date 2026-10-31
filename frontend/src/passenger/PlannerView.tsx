@@ -1,36 +1,81 @@
-// Sıxlığı nəzərə alan marşrut planı: ən sürətli deyil, "ən az əziyyətli" variant birinci.
-import { useEffect, useState } from 'react';
-import { ArrowDownUp, ArrowRight } from 'lucide-react';
+// "Haradan → Haraya": sıxlığı nəzərə alan marşrut planı. Variantlar hiss olunan vaxta görə sıralanır.
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowDownUp, ArrowLeft, Circle, MapPin } from 'lucide-react';
 import { api, type Network, type PlanResult } from '../api';
-import { CrowdPill, RouteBadge } from '../components/Crowd';
-import { fmtMin } from '../lib/format';
+import { RouteBadge } from '../components/Crowd';
+import { fmtMin, LEVEL_TEXT } from '../lib/format';
+import { distM, type Pos } from '../lib/geo';
+import { norm } from './SearchView';
 
-export function PlannerView({ net, from, setFrom }: { net: Network; from: string; setFrom: (id: string) => void }) {
-  const [to, setTo] = useState(() => localStorage.getItem('stb.to') ?? (from === 'GEN' ? 'ELM' : 'GEN'));
+function StopField({ net, label, value, onChange, icon }: { net: Network; label: string; value: string | null; onChange: (id: string) => void; icon: React.ReactNode }) {
+  const [editing, setEditing] = useState(false);
+  const [q, setQ] = useState('');
+  const name = net.stops.find((s) => s.id === value)?.name ?? '';
+  const nq = norm(q.trim());
+  const hits = useMemo(() => (nq.length >= 2 ? net.stops.filter((s) => norm(s.name).includes(nq)).slice(0, 8) : []), [net, nq]);
+  return (
+    <div className="field">
+      {icon}
+      {editing ? (
+        <input
+          autoFocus
+          aria-label={label}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onBlur={() => window.setTimeout(() => setEditing(false), 150)}
+          placeholder={label}
+        />
+      ) : (
+        <button type="button" className={`field-btn ${value ? '' : 'ph'}`} onClick={() => setEditing(true)}>
+          {name || label}
+        </button>
+      )}
+      {editing && hits.length > 0 && (
+        <ul className="field-pop" role="listbox" aria-label={label}>
+          {hits.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(s.id);
+                  setEditing(false);
+                  setQ('');
+                }}
+              >
+                {s.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function PlannerView({ net, pos, from, setFrom, onBack }: { net: Network; pos: Pos | null; from: string | null; setFrom: (id: string) => void; onBack: () => void }) {
+  const [to, setTo] = useState<string | null>(() => localStorage.getItem('stb.to'));
   const [res, setRes] = useState<PlanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const stops = [...net.stops].sort((a, b) => a.name.localeCompare(b.name, 'az'));
 
   useEffect(() => {
-    localStorage.setItem('stb.to', to);
-    if (from === to) {
-      setRes(null);
-      setError('Başlanğıc və son dayanacaq fərqli olmalıdır.');
-      return;
-    }
+    if (!from && pos) setFrom([...net.stops].sort((a, b) => distM(pos, a) - distM(pos, b))[0].id);
+  }, [pos, from, net, setFrom]);
+
+  useEffect(() => {
+    if (to) localStorage.setItem('stb.to', to);
+    setRes(null);
+    setError(null);
+    if (!from || !to) return;
+    if (from === to) return setError('Başlanğıc və son dayanacaq fərqli olmalıdır.');
     let alive = true;
     const load = () =>
       api
         .get<PlanResult>(`/api/plan?from=${from}&to=${to}`)
-        .then((r) => {
-          if (alive) {
-            setRes(r);
-            setError(null);
-          }
-        })
+        .then((r) => alive && setRes(r))
         .catch((e: Error) => alive && setError(e.message));
     load();
-    const t = window.setInterval(load, 5000);
+    const t = window.setInterval(load, 6000);
     return () => {
       alive = false;
       window.clearInterval(t);
@@ -40,25 +85,24 @@ export function PlannerView({ net, from, setFrom }: { net: Network; from: string
   const fastest = res?.journeys.length ? Math.min(...res.journeys.map((j) => j.totalS)) : null;
 
   return (
-    <section className="planner" aria-labelledby="plan-title">
-      <h1 id="plan-title">Marşrut planı</h1>
-      <p className="finding">Variantlar “hiss olunan vaxta” görə sıralanır: ayaq üstə dolu avtobusda 10 dəqiqə oturaraq 23 dəqiqə kimi hiss olunur.</p>
-      <div className="plan-form">
-        <label>
-          <span>Haradan</span>
-          <select value={from} onChange={(e) => setFrom(e.target.value)}>
-            {stops.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+    <div className="view plan">
+      <header className="view-head">
+        <button type="button" className="back" onClick={onBack} aria-label="Geri">
+          <ArrowLeft size={20} aria-hidden />
+        </button>
+        <h1 id="plan-title">Marşrut planı</h1>
+      </header>
+      <div className="od">
+        <div className="od-fields">
+          <StopField net={net} label="Haradan" value={from} onChange={setFrom} icon={<Circle size={14} aria-hidden className="od-ico" />} />
+          <StopField net={net} label="Haraya" value={to} onChange={setTo} icon={<MapPin size={16} aria-hidden className="od-ico" />} />
+        </div>
         <button
           type="button"
-          className="btn-icon"
+          className="btn-round"
           aria-label="Yerlərini dəyiş"
           onClick={() => {
+            if (!from || !to) return;
             const f = from;
             setFrom(to);
             setTo(f);
@@ -66,50 +110,48 @@ export function PlannerView({ net, from, setFrom }: { net: Network; from: string
         >
           <ArrowDownUp size={18} aria-hidden />
         </button>
-        <label>
-          <span>Haraya</span>
-          <select value={to} onChange={(e) => setTo(e.target.value)}>
-            {stops.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
-      {error && (
-        <p className="report-err" role="alert">
-          {error}
-        </p>
-      )}
-      {res && !res.journeys.length && <p className="empty">Bu iki dayanacaq arasında ən çox bir köçürmə ilə gedən variant tapılmadı.</p>}
+
+      {error && <p className="hint err">{error}</p>}
+      {!to && <p className="hint">Hara getmək istədiyinizi yazın. Variantları sərnişinlərin bildirdiyi sıxlığa görə sıralayacağıq.</p>}
+      {res && !res.journeys.length && <p className="hint">Bu iki dayanacaq arasında ən çox bir köçürmə ilə gedən variant tapılmadı.</p>}
       <ol className="journeys">
         {res?.journeys.map((j, i) => (
           <li key={i} className="journey">
-            <div className="j-head">
+            <div className="j-top">
               <span className="j-time">{fmtMin(j.totalS)}</span>
-              <span className="j-felt">hiss olunan {fmtMin(j.perceivedS)}</span>
-              <span className={`j-comfort c-${j.comfort === 'yer var' ? 1 : j.comfort === 'orta' ? 2 : 3}`}>{j.comfort}</span>
-              {i === 0 && <span className="j-tag">Ən rahat</span>}
-              {fastest != null && j.totalS === fastest && i !== 0 && <span className="j-tag alt">Ən sürətli</span>}
+              <span className="j-tags">
+                {i === 0 && <span className="j-tag">Ən rahat</span>}
+                {fastest != null && j.totalS === fastest && i !== 0 && <span className="j-tag alt">Ən sürətli</span>}
+              </span>
             </div>
-            <ul className="legs">
+            <div className="j-legs">
+              {j.legs.map((l, k) => (
+                <span key={k} className="j-leg">
+                  {k > 0 && <span className="j-sep" aria-hidden>›</span>}
+                  <RouteBadge id={l.routeId} color={l.color} size="sm" />
+                </span>
+              ))}
+              <span className="j-felt">
+                {j.comfort === 'ayaq üstə' ? 'Ayaq üstə' : j.comfort === 'orta' ? 'Orta sıxlıq' : 'Yer var'} · hiss olunur {fmtMin(j.perceivedS)}
+              </span>
+            </div>
+            <ul className="j-steps">
               {j.legs.map((l, k) => (
                 <li key={k}>
-                  <RouteBadge id={l.routeId} color={l.color} size="sm" />
-                  <span className="leg-path">
-                    {l.fromName} <ArrowRight size={14} aria-label="sonra" /> {l.toName}
+                  {l.fromName} → {l.toName}
+                  <span className="muted">
+                    {' '}
+                    · gözləmə {fmtMin(l.waitS)}
+                    {l.level ? ` · ${LEVEL_TEXT[l.level].label.toLowerCase()}` : ''}
                   </span>
-                  <span className="leg-wait">gözləmə {fmtMin(l.waitS)}</span>
-                  <CrowdPill level={l.level} compact />
                 </li>
               ))}
             </ul>
-            {j.transfers > 0 && <p className="fine">1 köçürmə{j.legs[1] ? `: ${j.legs[1].fromName}` : ''}</p>}
           </li>
         ))}
       </ol>
-      {res && <p className="fine">Sıxlıq əmsalları: oturaraq ×{res.multipliers.medium}, ayaq üstə ×{res.multipliers.high}. Mənbə: {res.multipliers.source}.</p>}
-    </section>
+      {res && <p className="source">Dolu avtobusda ayaq üstə 10 dəqiqə təxminən 23 dəqiqə kimi hiss olunur (Wardman & Whelan, 2011).</p>}
+    </div>
   );
 }

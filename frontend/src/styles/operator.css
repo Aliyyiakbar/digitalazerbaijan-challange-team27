@@ -853,3 +853,121 @@
     gap: 0;
   }
 }
+
+/* --- yenilənmiş düzülüş: daha çox hava, xəritə solda və böyük --- */
+.operator .dash {
+  gap: 28px;
+  max-width: 1680px;
+}
+.panel {
+  padding: 22px 24px 24px;
+}
+.dash-grid.map-first {
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+.dash-grid.map-first .mapp {
+  order: -1;
+  min-height: 600px;
+}
+.dash-grid.map-first .queue {
+  max-height: 660px;
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  margin: 0;
+}
+.kpis > div {
+  padding: 18px 24px;
+}
+.kpis > div + div {
+  border-left: 1px solid var(--border);
+}
+.kpis dt {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.kpis dd {
+  margin-top: 4px;
+  font-size: 26px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.kpis dd small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.kpis dd.neg {
+  color: var(--lvl3-ink);
+}
+.table-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.tsearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--muted);
+}
+.tsearch input {
+  width: 200px;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+}
+.rtable th,
+.rtable td {
+  height: 48px;
+  padding: 0 14px;
+}
+.rname {
+  max-width: 340px;
+}
+.alert {
+  padding: 14px 16px 16px;
+  gap: 8px;
+}
+.queue-list {
+  gap: 12px;
+}
+.rchart .grid {
+  stroke: #2b2b2b;
+}
+.rchart .tick {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.rchart .bar {
+  fill: var(--accent);
+}
+.map-dark .leaflet-container {
+  background: #15161a;
+}
+@media (max-width: 1200px) {
+  .dash-grid.map-first {
+    grid-template-columns: 1fr;
+  }
+  .dash-grid.map-first .mapp {
+    min-height: 420px;
+  }
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpis > div:nth-child(3) {
+    border-left: 0;
+  }
+}

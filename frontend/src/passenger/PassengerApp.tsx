@@ -1,19 +1,24 @@
-// Sərnişin modulu (PWA). Telefon üçün əvvəlcə: alt naviqasiya, böyük toxunma hədəfləri,
-// sadə rejim, yüksək kontrast, böyük şrift; masaüstündə panel + xəritə.
+// Sərnişin modulu (PWA) — AYNA MaaS kimi: tam ekran xəritə, üstdə axtarış, altda panel.
+// Bir ekranda bir iş: ana səhifə → dayanacaq → avtobus; xətt; marşrut planı.
 import { useEffect, useMemo, useState } from 'react';
-import { Accessibility, BusFront, Clock, Download, Route as RouteIcon, WifiOff } from 'lucide-react';
-import { flushQueue, queuedCount, useLive, useNetwork, useOnline } from '../api';
-import { MapView, type MapBus, type MapLine, type MapStop } from '../components/MapView';
-import { ArrivalsView } from './ArrivalsView';
+import { Accessibility, Download, LocateFixed, Search, WifiOff } from 'lucide-react';
+import { flushQueue, queuedCount, useBackground, useLive, useNetwork, useOnline } from '../api';
+import { MapView, type FitRequest, type MapBus, type MapLine, type MapStop } from '../components/MapView';
+import { Sheet, useIsDesktop, type Snap } from '../components/Sheet';
+import { distM, useUserLocation } from '../lib/geo';
+import { HomeView } from './HomeView';
+import { StopView } from './StopView';
+import { RouteView } from './RouteView';
 import { PlannerView } from './PlannerView';
-import { LinesView } from './LinesView';
+import { SearchView } from './SearchView';
 
-type Tab = 'arrivals' | 'plan' | 'lines';
+type View = { kind: 'home' } | { kind: 'stop'; id: string } | { kind: 'route'; id: string } | { kind: 'plan' } | { kind: 'search' };
 interface Prefs {
   simple: boolean;
   contrast: boolean;
   large: boolean;
 }
+type InstallEvent = Event & { prompt: () => Promise<void> };
 
 function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
   const [p, setP] = useState<Prefs>(() => ({ simple: false, contrast: false, large: false, ...JSON.parse(localStorage.getItem('stb.prefs') ?? '{}') }));
@@ -27,22 +32,44 @@ function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
   ];
 }
 
-type InstallEvent = Event & { prompt: () => Promise<void> };
-
 export function PassengerApp() {
   const { net, error } = useNetwork();
+  const bg = useBackground();
   const { state: live, connected } = useLive();
   const online = useOnline();
-  const [tab, setTab] = useState<Tab>('arrivals');
-  const [stopId, setStopId] = useState(() => localStorage.getItem('stb.stop') ?? 'GEN');
-  const [routeId, setRouteId] = useState(() => localStorage.getItem('stb.route') ?? 'M6');
+  const { pos, status: locStatus, start: locate } = useUserLocation();
+  const desktop = useIsDesktop();
   const [prefs, setPrefs] = usePrefs();
+  const [view, setView] = useState<View>(() => {
+    const s = localStorage.getItem('stb.stop');
+    return s ? { kind: 'stop', id: s } : { kind: 'home' };
+  });
+  const [history, setHistory] = useState<View[]>([]);
+  const [snap, setSnap] = useState<Snap>('peek');
   const [menu, setMenu] = useState(false);
   const [install, setInstall] = useState<InstallEvent | null>(null);
   const [queued, setQueued] = useState(queuedCount());
+  const [from, setFrom] = useState<string | null>(null);
+  const [fitNonce, setFitNonce] = useState(0);
 
-  useEffect(() => localStorage.setItem('stb.stop', stopId), [stopId]);
-  useEffect(() => localStorage.setItem('stb.route', routeId), [routeId]);
+  const go = (v: View) => {
+    setHistory((h) => [...h.slice(-10), view]);
+    setView(v);
+    if (v.kind === 'stop') localStorage.setItem('stb.stop', v.id);
+    if (v.kind === 'search' || v.kind === 'plan') setSnap('full');
+    else setSnap('peek');
+  };
+  const back = () => {
+    const prev = history[history.length - 1];
+    setHistory((h) => h.slice(0, -1));
+    setView(prev && prev.kind !== 'search' ? prev : { kind: 'home' });
+    if (!prev || prev.kind === 'home') localStorage.removeItem('stb.stop');
+    setSnap('peek');
+  };
+
+  useEffect(() => {
+    if (net && view.kind === 'stop' && !net.stops.some((s) => s.id === view.id)) setView({ kind: 'home' });
+  }, [net, view]);
   useEffect(() => {
     const h = (e: Event) => {
       e.preventDefault();
@@ -53,62 +80,138 @@ export function PassengerApp() {
   }, []);
   useEffect(() => {
     if (online) flushQueue().then(() => setQueued(queuedCount()));
-    const t = window.setInterval(() => setQueued(queuedCount()), 3000);
+    const t = window.setInterval(() => setQueued(queuedCount()), 4000);
     return () => window.clearInterval(t);
   }, [online]);
 
-  const mapData = useMemo(() => {
-    if (!net) return { lines: [] as MapLine[], buses: [] as MapBus[], stops: [] as MapStop[], key: 'none' };
-    if (tab === 'lines') {
-      const r = net.routes.find((x) => x.id === routeId)!;
-      const stopSet = new Set(r.stopIds);
+  // ---------------------------------------------------------------- xəritə
+  const map = useMemo((): { lines: MapLine[]; buses: MapBus[]; stops: MapStop[]; fit: FitRequest | null } => {
+    const empty = { lines: [] as MapLine[], buses: [] as MapBus[], stops: [] as MapStop[], fit: null as FitRequest | null };
+    if (!net) return empty;
+    const routeById = new Map(net.routes.map((r) => [r.id, r]));
+    const coords = (id: string) => {
+      const r = routeById.get(id)!;
+      return [...r.forward, ...r.backward];
+    };
+    const busFor = (ids: Set<string> | null, labeled: boolean): MapBus[] =>
+      (live?.buses ?? [])
+        .filter((b) => !ids || ids.has(b.routeId))
+        .map((b) => ({ id: b.id, lat: b.lat, lon: b.lon, label: labeled ? b.routeId : '', level: b.crowd.level, color: routeById.get(b.routeId)?.color, ring: b.bunchedFollower, reserve: b.reserve }));
+    const userPt: [number, number][] = pos ? [[pos.lat, pos.lon]] : [];
+
+    if (view.kind === 'stop') {
+      const stop = net.stops.find((s) => s.id === view.id);
+      if (!stop) return empty;
+      const ids = new Set(stop.routes);
       return {
-        lines: [{ id: r.id, coords: [...r.forward, ...r.backward], color: '#0a0a0a', weight: 4, opacity: 0.85 }],
-        buses: (live?.buses ?? []).filter((b) => b.routeId === routeId).map((b) => ({ id: b.id, lat: b.lat, lon: b.lon, label: b.label, level: b.crowd.level, ring: b.bunchedFollower, reserve: b.reserve })),
-        stops: net.stops.filter((s) => stopSet.has(s.id)).map((s) => ({ ...s, selected: false })),
-        key: `line-${routeId}`,
+        lines: stop.routes.map((id) => ({ id, coords: coords(id), color: routeById.get(id)!.color, weight: 4, opacity: 0.85, label: `${id} · ${routeById.get(id)!.name}`, onClick: () => go({ kind: 'route', id }) })),
+        buses: busFor(ids, true),
+        stops: [{ ...stop, selected: true }],
+        fit: { key: `stop-${stop.id}-${fitNonce}`, points: [[stop.lat, stop.lon] as [number, number], ...(pos && distM(pos, stop) < 2500 ? userPt : [])] },
       };
     }
-    const stop = net.stops.find((s) => s.id === stopId)!;
-    const routes = net.routes.filter((r) => stop.routes.includes(r.id));
-    const rs = new Set(stop.routes);
+    if (view.kind === 'route') {
+      const r = routeById.get(view.id);
+      if (!r) return empty;
+      const sids = new Set(r.stopIds);
+      return {
+        lines: [{ id: r.id, coords: coords(r.id), color: r.color, weight: 5, opacity: 0.95 }],
+        buses: busFor(new Set([r.id]), true),
+        stops: net.stops.filter((s) => sids.has(s.id)),
+        fit: { key: `route-${r.id}-${fitNonce}`, points: coords(r.id) },
+      };
+    }
+    // ana səhifə: bütün canlı xətlər öz rəngində, yaxındakı dayanacaqlar
+    const near = pos ? [...net.stops].sort((a, b) => distM(pos, a) - distM(pos, b)).slice(0, 6) : [];
     return {
-      lines: routes.map((r) => ({ id: r.id, coords: r.forward, color: '#8a8a8a', weight: 3, opacity: 0.7, label: `${r.id} · ${r.name}` })),
-      buses: (live?.buses ?? []).filter((b) => rs.has(b.routeId)).map((b) => ({ id: b.id, lat: b.lat, lon: b.lon, label: b.label, level: b.crowd.level, ring: b.bunchedFollower, reserve: b.reserve })),
-      stops: net.stops.filter((s) => s.routes.some((r) => rs.has(r))).map((s) => ({ ...s, selected: s.id === stopId })),
-      key: `stop-${stopId}`,
+      lines: net.routes.map((r) => ({ id: r.id, coords: coords(r.id), color: r.color, weight: 2.5, opacity: 0.6, label: `${r.id} · ${r.name}`, onClick: () => go({ kind: 'route', id: r.id }) })),
+      buses: busFor(null, false),
+      stops: near,
+      fit: pos ? { key: `home-user-${fitNonce}`, points: [[pos.lat, pos.lon] as [number, number], ...near.slice(0, 3).map((s) => [s.lat, s.lon] as [number, number])] } : { key: `home-${fitNonce}`, points: [[40.36, 49.78], [40.47, 49.98]] as [number, number][] },
     };
-  }, [net, live, tab, stopId, routeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [net, live, view, pos, fitNonce]);
+
+  const background: MapLine[] = useMemo(() => (bg?.routes ?? []).map((r) => ({ id: r.id, coords: r.coords, color: '#7b8794', weight: 1.4, opacity: 0.28 })), [bg]);
+
+  // panel xəritənin bir hissəsini örtür — fit zamanı nəzərə al
+  const pad = desktop ? { tl: [460, 40] as [number, number], br: [40, 40] as [number, number] } : { tl: [24, 90] as [number, number], br: [24, Math.round(window.innerHeight * 0.45)] as [number, number] };
+
+  // ilk dəfə yer təyin olunanda xəritəni ora gətir
+  useEffect(() => {
+    if (pos && view.kind === 'home') setFitNonce((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos != null]);
 
   const cls = ['passenger', prefs.simple && 'simple', prefs.contrast && 'contrast', prefs.large && 'large'].filter(Boolean).join(' ');
 
+  const body =
+    !net ? (
+      <div className="view">{error ? <p className="hint err">{error}</p> : <p className="hint">Yüklənir…</p>}</div>
+    ) : view.kind === 'search' ? (
+      <SearchView net={net} onClose={back} onStop={(id) => go({ kind: 'stop', id })} onRoute={(id) => go({ kind: 'route', id })} />
+    ) : view.kind === 'stop' ? (
+      <StopView net={net} stopId={view.id} pos={pos} simple={prefs.simple} onBack={back} onRoute={(id) => go({ kind: 'route', id })} />
+    ) : view.kind === 'route' ? (
+      <RouteView net={net} live={live} routeId={view.id} onBack={back} onStop={(id) => go({ kind: 'stop', id })} />
+    ) : view.kind === 'plan' ? (
+      <PlannerView net={net} pos={pos} from={from} setFrom={setFrom} onBack={back} />
+    ) : (
+      <HomeView net={net} pos={pos} locStatus={locStatus} onLocate={locate} onStop={(id) => go({ kind: 'stop', id })} onRoute={(id) => go({ kind: 'route', id })} onPlan={() => go({ kind: 'plan' })} />
+    );
+
+  const searchBar = view.kind !== 'search' && (
+    <button type="button" className="search-bar" onClick={() => go({ kind: 'search' })}>
+      <Search size={18} aria-hidden />
+      <span>Dayanacaq və ya xətt axtar</span>
+    </button>
+  );
+
   return (
     <div className={cls}>
-      <a href="#main" className="skip">
+      <a href="#sheet" className="skip">
         Əsas məzmuna keç
       </a>
-      <header className="p-top">
-        <a className="wordmark" href="/" aria-label="Bakı Sıxlıq, ana səhifə">
-          <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden>
-            <rect width="64" height="64" rx="14" fill="currentColor" />
-            <rect x="14" y="36" width="9" height="14" rx="2" fill="var(--surface)" />
-            <rect x="27.5" y="26" width="9" height="24" rx="2" fill="var(--surface)" />
-            <rect x="41" y="14" width="9" height="36" rx="2" fill="var(--chart-3)" />
-          </svg>
-          <span>Bakı Sıxlıq</span>
-        </a>
-        <span className={`conn ${connected ? 'ok' : 'off'}`} role="status">
-          {connected ? 'Canlı' : 'Qoşulur…'}
-        </span>
+      {!prefs.simple && (
+        <div className="p-map">
+          <MapView
+            theme="light"
+            background={background}
+            lines={map.lines}
+            buses={map.buses}
+            stops={map.stops}
+            user={pos}
+            fit={map.fit}
+            pad={pad}
+            onStopClick={(id) => go({ kind: 'stop', id })}
+            label="Xəritə: xətlər, avtobuslar və sizin yeriniz"
+          />
+        </div>
+      )}
+
+      {/* üst sağ düymələr */}
+      <div className="fab-col">
+        <button
+          type="button"
+          className={`fab ${locStatus === 'on' ? 'on' : ''}`}
+          onClick={() => {
+            locate();
+            setFitNonce((n) => n + 1);
+            if (view.kind !== 'home' && view.kind !== 'stop') go({ kind: 'home' });
+          }}
+          aria-label="Yerimi göstər"
+          title={locStatus === 'denied' ? 'Yer icazəsi verilməyib' : 'Yerimi göstər'}
+        >
+          <LocateFixed size={20} aria-hidden />
+        </button>
         <div className="menu-wrap">
-          <button type="button" className="btn-icon" aria-expanded={menu} aria-controls="a11y-menu" onClick={() => setMenu(!menu)}>
-            <Accessibility size={18} aria-hidden />
-            <span className="sr-only">Görünüş parametrləri</span>
+          <button type="button" className="fab" aria-expanded={menu} aria-controls="a11y-menu" onClick={() => setMenu(!menu)} aria-label="Görünüş parametrləri">
+            <Accessibility size={20} aria-hidden />
           </button>
           {menu && (
             <div id="a11y-menu" className="menu" role="group" aria-label="Görünüş parametrləri">
               <label>
-                <input type="checkbox" checked={prefs.simple} onChange={(e) => setPrefs({ simple: e.target.checked })} /> Sadə rejim (xəritəsiz, yalnız növbəti 3 avtobus)
+                <input type="checkbox" checked={prefs.simple} onChange={(e) => setPrefs({ simple: e.target.checked })} /> Sadə rejim: xəritəsiz, yalnız növbəti 3 avtobus
               </label>
               <label>
                 <input type="checkbox" checked={prefs.large} onChange={(e) => setPrefs({ large: e.target.checked })} /> Böyük şrift
@@ -128,53 +231,36 @@ export function PassengerApp() {
                   <Download size={16} aria-hidden /> Telefona quraşdır
                 </button>
               )}
-              <a className="btn-link" href="/operator">
+              <a className="menu-link" href="/operator">
                 Dispetçer paneli
               </a>
+              <span className={`conn ${connected ? 'ok' : ''}`}>{connected ? 'Canlı məlumat qoşulub' : 'Qoşulur…'}</span>
             </div>
           )}
         </div>
-      </header>
+      </div>
 
       {(!online || queued > 0) && (
         <p className="offline" role="status">
-          <WifiOff size={16} aria-hidden /> {online ? `${queued} bildiriş göndərilməyi gözləyir` : 'İnternet yoxdur. Son məlumat göstərilir; bildirişlər yadda saxlanılır.'}
+          <WifiOff size={16} aria-hidden /> {online ? `${queued} bildiriş göndərilməyi gözləyir` : 'İnternet yoxdur. Bildirişlər yadda saxlanılır.'}
         </p>
       )}
 
-      <div className="p-body">
-        <main id="main" className="p-panel" tabIndex={-1}>
-          {error && (
-            <p className="report-err" role="alert">
-              {error}
-            </p>
-          )}
-          {!net && !error && <p className="fine">Yüklənir…</p>}
-          {net && tab === 'arrivals' && <ArrivalsView net={net} stopId={stopId} onStop={setStopId} simple={prefs.simple} />}
-          {net && tab === 'plan' && <PlannerView net={net} from={stopId} setFrom={setStopId} />}
-          {net && tab === 'lines' && <LinesView net={net} live={live} routeId={routeId} setRouteId={setRouteId} />}
-        </main>
-        {!prefs.simple && net && (
-          <div className="p-map">
-            <MapView theme="light" lines={mapData.lines} buses={mapData.buses} stops={mapData.stops} onStopClick={(id) => setStopId(id)} fitKey={mapData.key} label="Xəritə: avtobusların canlı yerləşməsi və sıxlığı" />
-          </div>
-        )}
-      </div>
+      {!desktop && !prefs.simple && <div className="top-search">{searchBar}</div>}
 
-      <nav className="p-tabs" aria-label="Bölmələr">
-        <button type="button" aria-current={tab === 'arrivals' ? 'page' : undefined} onClick={() => setTab('arrivals')}>
-          <Clock size={20} aria-hidden />
-          <span>Gəlişlər</span>
-        </button>
-        <button type="button" aria-current={tab === 'plan' ? 'page' : undefined} onClick={() => setTab('plan')}>
-          <RouteIcon size={20} aria-hidden />
-          <span>Marşrut</span>
-        </button>
-        <button type="button" aria-current={tab === 'lines' ? 'page' : undefined} onClick={() => setTab('lines')}>
-          <BusFront size={20} aria-hidden />
-          <span>Xətlər</span>
-        </button>
-      </nav>
+      {prefs.simple ? (
+        <main id="sheet" className="simple-page">
+          {searchBar}
+          {body}
+        </main>
+      ) : (
+        <Sheet snap={snap} onSnap={setSnap} label="Məlumat paneli">
+          <main id="sheet" tabIndex={-1}>
+            {desktop && searchBar}
+            {body}
+          </main>
+        </Sheet>
+      )}
     </div>
   );
 }

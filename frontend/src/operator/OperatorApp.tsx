@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { Bell, BellOff, FileCode2, FlaskConical, History, LayoutDashboard, Smartphone } from 'lucide-react';
-import { api, useLive, useNetwork, type Network, type Overview } from '../api';
+import { api, useBackground, useLive, useNetwork, type Network, type Overview } from '../api';
 import { MapView, type MapLine } from '../components/MapView';
 import { fmtClock } from '../lib/format';
 import { AlertCard } from './AlertCard';
@@ -90,11 +90,23 @@ function Dashboard({ net }: { net: Network }) {
       net.routes.map((r) => {
         const v = routes.find((x) => x.id === r.id);
         const lvl = v?.crowd.level ?? 'none';
-        return { id: r.id, coords: r.forward, color: LEVEL_COLOR[String(lvl)], weight: sel === r.id ? 7 : lvl === 3 ? 5 : 3.5, opacity: sel && sel !== r.id ? 0.35 : 0.95, label: `${r.id} · ${r.name}` };
+        return {
+          id: r.id,
+          coords: [...r.forward, ...r.backward],
+          color: LEVEL_COLOR[String(lvl)],
+          weight: sel === r.id ? 6 : lvl === 3 ? 4.5 : 3,
+          opacity: sel && sel !== r.id ? 0.25 : lvl === 'none' ? 0.6 : 0.95,
+          label: `${r.id} · ${r.name}`,
+          onClick: () => setSel(r.id),
+        };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [net, ov, sel],
   );
+  const bg = useBackground();
+  const background: MapLine[] = useMemo(() => (bg?.routes ?? []).filter((r) => !r.live).map((r) => ({ id: r.id, coords: r.coords, color: '#8a8c92', weight: 1.2, opacity: 0.3 })), [bg]);
+  const highRoutes = routes.filter((r) => r.crowd.level === 3).length;
+  const reports10 = routes.reduce((a, r) => a + r.crowd.n, 0);
   const mapBuses = buses.map((b) => ({ id: b.id, lat: b.lat, lon: b.lon, label: '', level: b.crowd.level, ring: b.bunchedFollower, reserve: b.reserve, dim: !!sel && sel !== b.routeId }));
   const selRoute = routes.find((r) => r.id === sel);
 
@@ -137,7 +149,28 @@ function Dashboard({ net }: { net: Network }) {
         </div>
       </header>
 
-      <div className="dash-grid">
+      <dl className="kpis">
+        <div>
+          <dt>Yüksək sıxlıqda</dt>
+          <dd className={highRoutes ? 'neg' : ''}>
+            {highRoutes} <small>/ {routes.length} xətt</small>
+          </dd>
+        </div>
+        <div>
+          <dt>Açıq xəbərdarlıq</dt>
+          <dd>{openCount}</dd>
+        </div>
+        <div>
+          <dt>Xətdə avtobus</dt>
+          <dd>{buses.length}</dd>
+        </div>
+        <div>
+          <dt>Son 10 dəq bildiriş</dt>
+          <dd>{reports10.toLocaleString('az')}</dd>
+        </div>
+      </dl>
+
+      <div className="dash-grid map-first">
         <section className="panel queue" aria-labelledby="q-title">
           <header className="panel-head">
             <h2 id="q-title">Xəbərdarlıqlar</h2>
@@ -172,18 +205,21 @@ function Dashboard({ net }: { net: Network }) {
                 <i style={{ background: LEVEL_COLOR.none }} /> bildiriş yoxdur
               </li>
               <li>
+                <i style={{ background: '#8a8c92', height: 2 }} /> digər AYNA xətləri
+              </li>
+              <li>
                 <i className="ring-swatch" /> toplanmanın arxası
               </li>
             </ul>
           </header>
-          <MapView theme="dark" lines={lines} buses={mapBuses} stops={[]} fitKey="all" label="Bakı: xətlər sıxlığa görə rənglənib, nöqtələr avtobuslardır" />
+          <MapView theme="dark" background={background} lines={lines} buses={mapBuses} stops={[]} fit={{ key: 'all', points: [[40.33, 49.72], [40.52, 50.08]] }} label="Bakı: canlı xətlər sıxlığa görə rənglənib, boz xətlər canlı məlumatı olmayan AYNA xətləridir, nöqtələr avtobuslardır" />
         </section>
       </div>
 
       <section className="panel" aria-labelledby="t-title">
         <header className="panel-head">
           <h2 id="t-title">Xətlər</h2>
-          <span className="fine">Sıra: sıxlıq balına görə. Sətrə klikləyin: təfərrüat, sıxlıq dalğası, proqnoz.</span>
+          <span className="fine">Sətrə və ya xəritədəki xəttə klikləyin: təfərrüat, sıxlıq dalğası, proqnoz, real gediş statistikası.</span>
         </header>
         {ov ? <RouteTable routes={routes} selected={sel} onSelect={setSel} /> : <div className="sk-table" aria-hidden />}
       </section>

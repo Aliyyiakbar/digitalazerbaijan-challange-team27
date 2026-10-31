@@ -9,8 +9,8 @@
     "test": "npm --prefix backend test && npm --prefix frontend test",
     "build": "npm --prefix frontend run build",
     "start": "npm --prefix frontend run build && STATIC_DIR=../frontend/dist npm --prefix backend start",
-    "geodata": "node scripts/build-geodata.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "opendata": "NODE_USE_ENV_PROXY=1 node scripts/import-opendata.mjs"
   },
   "engines": {
     "node": ">=22"

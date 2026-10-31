@@ -7,6 +7,8 @@ Bakı ictimai nəqliyyatı üçün real vaxt marşrut və yük (sıxlıq) analit
 
 > **Kontekst.** Bakının avtobus sisteminə AYNA (Azərbaycan Yerüstü Nəqliyyat Agentliyi) baxır. BNA 2023-cü ildə ləğv edilib və funksiyaları AYNA-ya keçib. AYNA MaaS tətbiqi avtobusun yerini və ETA-nı göstərir, amma **avtobusun nə qədər dolu olduğunu göstərmir**. 4 avqust 2026-dan metroda 28 May–Nizami hissəsi bağlıdır, M1–M6 ekspres xətləri açılıb, sərnişinlər M6 və 17 nömrəli xətlərin sıxlığından şikayət edir. Prototip bu ssenari üzərində qurulub. Mənbələr: [docs/TEXNIKI_IZAH.md](docs/TEXNIKI_IZAH.md#mənbələr).
 
+> **Real məlumat (opendata.az).** Şəbəkə rəsmi açıq məlumatdan qurulub: AYNA-nın **243 xəttinin həndəsəsi** (CC0), BakuBus-un **3 590 dayanacağı** və **65 xətt üzrə 1 yanvar–30 sentyabr 2026 gündəlik gedişləri** (CC BY). Bunlardan **63 canlı xətt, 1 719 dayanacaq, 526 avtobus** alınır. Rəsmi məlumatda xətt ilə dayanacaq arasında əlaqə yoxdur, ona görə dayanacaq xəttin həndəsəsinə ≤25 m yaxındırsa, həmin xəttə bağlanır. Hər xəttin tələbatı, avtobus sayı və proqnoz bazası onun **real gündəlik gedişlərindən** kalibrlənib. Qalan 180 xətt xəritədə boz fon kimi görünür. Yalnız avtobusların anlıq hərəkəti və sərnişin bildirişləri simulyasiyadır. Yeniləmək üçün: `npm run opendata`.
+
 ---
 
 ## Mündəricat
@@ -72,14 +74,14 @@ Bütün dəyişənlər: [`.env.example`](.env.example).
 ## 2. Demo ssenarisi (5 dəqiqə)
 
 1. **/operator/demo** səhifəsində sürəti **×30** edin (10 dəqiqə ≈ 20 saniyə).
-2. **"Pik saat: M6"** düyməsini basın və **/operator** panelinə keçin. M6 xətti xəritədə qırmızıya dönür, cədvəldə "Yüksək" sütununda dəqiqələr artır. 10-cu dəqiqədə səs siqnalı ilə **"M6 xəttinə əlavə ehtiyat avtobus ayrılmalıdır"** kartı düşür. **"Niyə?"** bölməsini açın: qayda, bal, bildiriş və cihaz sayı, etibar, səbəb (tıxac/tələbat), az yüklü donor xətt və buraxılış dayanacağı göstərilir.
-3. **"Ehtiyat avtobus göndər"** düyməsini basın. Yeni M6·E avtobusu xəritəyə daxil olur, sərnişin tətbiqində də görünür.
-4. **Kənar hal: "Boş avtobusa 'çox sıx' deyirlər"** (M1). 6 cihaz boş avtobusa "yüksək" göndərir, onlardan 4-ü evdən. Avtobus toplanmış cütün arxasındadır. Sistem bildirişi atmır, amma etibarı aşağı salır: nişan **"Yoxlanılmalı"** olur və səbəbləri yazılır. Sərnişin tətbiqində yaxındakı istifadəçiyə **"Doğrudurmu?"** sualı çıxır.
-5. **Bot hücumu** (M3). 3 dəqiqə ərzində saniyədə bir bildiriş gəlir: 2 IP-dən, koordinatsız, yeni cihazlardan. Bildirişlər karantinə düşür, xəttin nişanı "Şübhəli" olur, "Saxta bildiriş" xəbərdarlığı yaranır.
+2. **"Pik saat: 14"** düyməsini basın və **/operator** panelinə keçin. 14 nömrəli xətt real məlumata görə bir avtobusa ən çox gediş düşən xətdir (gündə ~28 800). Xətt xəritədə qırmızıya dönür, cədvəldə "Fasiləsiz yüksək" sütununda dəqiqələr artır. 10-cu dəqiqədə səs siqnalı ilə **"14 xəttinə əlavə ehtiyat avtobus ayrılmalıdır"** kartı düşür. Pik saatda real tələbata görə başqa xətlərdə də belə tövsiyələr özbaşına yarana bilər. **"Niyə?"** bölməsini açın: qayda, bal, bildiriş və cihaz sayı, etibar, səbəb (tıxac/tələbat), az yüklü donor xətt və buraxılış dayanacağı göstərilir.
+3. **"Ehtiyat avtobus göndər"** düyməsini basın. Yeni 14·E avtobusu xəritəyə daxil olur, sərnişin tətbiqində də görünür.
+4. **Kənar hal: "Boş avtobusa 'çox sıx' deyirlər"** (5). 6 cihaz boş avtobusa "yüksək" göndərir, onlardan 4-ü evdən. Avtobus toplanmış cütün arxasındadır. Sistem bildirişi atmır, amma etibarı aşağı salır: nişan **"Yoxlanılmalı"** olur və səbəbləri yazılır. Sərnişin tətbiqində yaxındakı istifadəçiyə **"Doğrudurmu?"** sualı çıxır.
+5. **Bot hücumu** (M2). 3 dəqiqə ərzində saniyədə bir bildiriş gəlir: 2 IP-dən, koordinatsız, yeni cihazlardan. Bildirişlər karantinə düşür, xəttin nişanı "Şübhəli" olur, "Saxta bildiriş" xəbərdarlığı yaranır.
 6. **Tıxac** (6). Sürət düşür, amma dayanma müddəti adi qalır. Səbəb "Tıxac" kimi təsnif olunur və panel əlavə avtobusun kömək etməyəcəyini bildirir.
-7. **Toplanma** (M2). İki avtobus bir-birinin ardınca düşür. Panel arxadakı avtobusu neçə dəqiqə saxlamağı tövsiyə edir, sərnişinə isə "bunu burax, növbətisi boşdur" deyilir.
+7. **Toplanma** (88). İki avtobus bir-birinin ardınca düşür. Panel arxadakı avtobusu neçə dəqiqə saxlamağı tövsiyə edir, sərnişinə isə "bunu burax, növbətisi boşdur" deyilir.
 8. **/operator/history** (vaxt maşını). Son 2 saatı geri sarıb sıxlığın necə yayıldığına baxın. Xəbərdarlıqlar zaman zolağında işarələnib.
-9. Sərnişin tətbiqində **Marşrut** bölməsi. Variantlar "hiss olunan vaxta" görə sıralanır: dolu avtobusda ayaq üstə getmək təxminən 2.3 dəfə uzun hiss olunur.
+9. Sərnişin tətbiqi (AYNA MaaS üslubunda): xəritə tam ekrandır, üstdə axtarış, altda panel var. **"Yerimi göstər"** basanda yeriniz mavi nöqtə ilə görünür, yaxınlıqdakı dayanacaqlar məsafəsi ilə siyahıya düşür. **"Haraya gedirsiniz?"** bölməsi Variantlar "hiss olunan vaxta" görə sıralanır: dolu avtobusda ayaq üstə getmək təxminən 2.3 dəfə uzun hiss olunur.
 
 ---
 
@@ -168,7 +170,7 @@ S=$(curl -s -XPOST localhost:8080/api/session)
 ID=$(echo $S | jq -r .deviceId); TOK=$(echo $S | jq -r .token)
 curl -XPOST localhost:8080/api/reports -H 'content-type: application/json' \
   -H "x-device-id: $ID" -H "x-device-token: $TOK" \
-  -d '{"context":"bus","busId":"M6-2","level":"high","lat":40.39,"lon":49.83,"accuracy":20}'
+  -d '{"context":"bus","busId":"14-2","level":"high","lat":40.39,"lon":49.83,"accuracy":20}'
 ```
 
 ---
@@ -218,7 +220,7 @@ smart-transit-baku/
 │   │   ├── db/                  PostgreSQL/PGlite adapteri, sxem, Redis store
 │   │   ├── sim/                 simulyator (daxili və ayrıca proses)
 │   │   ├── gtfs/                GTFS + GTFS-RT ixracı
-│   │   ├── seed/                geodata.json (OSM/OSRM), sintetik tarixçə
+│   │   ├── seed/                geodata.json + network-all.json (opendata.az), tarixçə generatoru
 │   │   └── lib/                 həndəsə, simulyasiya saatı
 │   ├── test/
 │   └── Dockerfile
@@ -228,7 +230,7 @@ smart-transit-baku/
 │   ├── src/components/          xəritə, sıxlıq/etibar nişanları, proqnoz qrafiki
 │   ├── test/
 │   └── Dockerfile, nginx.conf
-├── scripts/                     geodata, ikonlar, dev başladıcı
+├── scripts/                     import-opendata.mjs (rəsmi məlumat → şəbəkə), ikonlar, dev başladıcı
 ├── docs/TEXNIKI_IZAH.md (.txt)  texniki izah sənədi
 ├── AI_DECLARATION.md            AI istifadəsi haqqında bəyannamə
 └── docker-compose.yml
@@ -238,9 +240,13 @@ smart-transit-baku/
 
 ## 8. Məhdudiyyətlər
 
-- **GPS və bildirişlər simulyasiyadır.** AYNA-nın açıq API-si və ya GTFS axını yoxdur. Simulyatorun "dürüst" sərnişinləri avtobusun həqiqi doluluğuna uyğun bildiriş göndərir (~14%-i bir səviyyə səhv olur). Ssenarilər UI-da "simulyasiya" kimi işarələnib.
-- **Dayanacaq koordinatları** OpenStreetMap-dən (Overpass), yol həndəsəsi OSRM-dən bir dəfə çəkilib (`npm run geodata`). M1–M6 xətlərinin uc dayanacaqları AYNA elanındandır. **Adi xətlərin (6, 17, 61, 88) dayanacaq siyahısı təxminidir.**
-- **Proqnoz modeli** 14 günlük **sintetik** tarixçə ilə öyrədilir. Real dəqiqlik yalnız AYNA/BakıKart məlumatı ilə ölçülə bilər.
+- **Avtobusların anlıq hərəkəti və bildirişlər simulyasiyadır.** AYNA-nın açıq real vaxt API-si və ya GTFS axını yoxdur. Simulyator real gündəlik gedişlərlə kalibrlənib. Simulyatorun "dürüst" sərnişinləri avtobusun həqiqi doluluğuna uyğun bildiriş göndərir (~14%-i bir səviyyə səhv olur). Ssenarilər UI-da "simulyasiya" kimi işarələnib.
+- **Xətt həndəsəsi 27.11.2025 tarixli AYNA snapshot-udur.** 2026-cı il dəyişiklikləri, məsələn yeni M-xətlərinin marşrutu, orada olmaya bilər.
+- **Xətt ↔ dayanacaq əlaqəsi həndəsi yaxınlıqla qurulub**, rəsmi siyahı deyil. Kəsişmələrdə qonşu küçənin dayanacağı da xəttə düşə bilər.
+- **Avtobus sayı və interval gündəlik gedişlərdən təxmin edilib** (gündə ~1 300 gedişə bir avtobus, 3–14 aralığında). Bu rəsmi park məlumatı deyil.
+- Gediş sayı **validasiya** sayıdır, unikal sərnişin deyil. Bunu nəşr edən qurumun özü vurğulayır.
+- Dayanacaq faylının lisenziyası göstərilməyib. Yenidən paylamazdan əvvəl Bakı Metropoliteni ilə dəqiqləşdirin.
+- **Proqnoz modeli** yarımsintetik tarixçə ilə öyrədilir. Hər xəttin yükü və həftə günü əmsalları realdır, gün içindəki saatlıq profil isə sintetikdir, çünki açıq məlumatda saatlıq bölgü yoxdur. Real dəqiqlik yalnız AYNA/BakıKart məlumatı ilə ölçülə bilər.
 - Operator panelində autentifikasiya yoxdur (prototip). Production üçün AYNA SSO/RBAC lazımdır.
 - Docker faylları yazılıb, amma hazırlandığı mühitdə Docker işə salına bilmədi. Lokal yol (PGlite + Redis) və Docker-in istifadə etdiyi ayrıca simulyator rejimi isə test olunub. Ətraflı: [AI_DECLARATION.md](AI_DECLARATION.md).
 

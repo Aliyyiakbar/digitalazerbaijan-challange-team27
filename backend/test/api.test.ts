@@ -41,10 +41,16 @@ describe('API', () => {
     expect(r.body.db).toBe('pglite');
   });
 
-  it('şəbəkə: 10 xətt, M6 dayanacaqları', async () => {
+  it('şəbəkə: opendata.az-dan real xətlər, dayanacaqlar və gündəlik gedişlər', async () => {
     const r = await request(app).get('/api/network');
-    expect(r.body.routes).toHaveLength(10);
-    expect(r.body.routes.find((x: { id: string }) => x.id === 'M6').stopIds).toEqual(['ELM', 'S20', 'N8', 'GEN']);
+    expect(r.body.routes.length).toBeGreaterThan(50);
+    const r14 = r.body.routes.find((x: { id: string }) => x.id === '14');
+    expect(r14.stopIds.length).toBeGreaterThan(20);
+    expect(r14.ridership.meanDaily).toBeGreaterThan(1000);
+    expect(r.body.stops.length).toBeGreaterThan(1000);
+    expect(r.body.sources.length).toBe(3);
+    const bg = await request(app).get('/api/network/background');
+    expect(bg.body.routes.length).toBeGreaterThan(200);
   });
 
   it('tokensiz bildiriş rədd edilir', async () => {
@@ -75,21 +81,24 @@ describe('API', () => {
   it('dayanacaq bildirişi yalnız xəttin dayanacağı üçün', async () => {
     const s = await request(app).post('/api/session').send({});
     const h = { 'x-device-id': s.body.deviceId, 'x-device-token': s.body.token };
-    const bad = await request(app).post('/api/reports').set(h).send({ context: 'stop', routeId: 'M6', stopId: 'HA', level: 'high' });
+    const m6 = engine.net.routes.get('M6')!;
+    const foreign = [...engine.net.stops.keys()].find((id) => !m6.stopIds.includes(id))!;
+    const bad = await request(app).post('/api/reports').set(h).send({ context: 'stop', routeId: 'M6', stopId: foreign, level: 'high' });
     expect(bad.status).toBe(400);
-    const good = await request(app).post('/api/reports').set(h).send({ context: 'stop', routeId: 'M6', stopId: 'GEN', level: 'high' });
+    const good = await request(app).post('/api/reports').set(h).send({ context: 'stop', routeId: 'M6', stopId: m6.stopIds[3], level: 'high' });
     expect(good.status).toBe(201);
   });
 
   it('dayanacaq gəlişləri ETA ilə', async () => {
-    const r = await request(app).get('/api/stops/GEN/arrivals');
+    const r = await request(app).get(`/api/stops/${engine.net.defaultStop}/arrivals`);
     expect(r.status).toBe(200);
     expect(r.body.arrivals.length).toBeGreaterThan(0);
     for (const a of r.body.arrivals) expect(a.etaS).toBeGreaterThanOrEqual(0);
   });
 
   it('marşrut planı variantlar qaytarır', async () => {
-    const r = await request(app).get('/api/plan?from=ELM&to=GEN');
+    const ids = engine.net.routes.get('14')!.stopIds;
+    const r = await request(app).get(`/api/plan?from=${ids[2]}&to=${ids[12]}`);
     expect(r.status).toBe(200);
     expect(r.body.journeys.length).toBeGreaterThan(0);
     expect(r.body.journeys[0].perceivedS).toBeGreaterThan(0);
@@ -115,6 +124,15 @@ describe('API', () => {
     expect(alert.title).toMatch(/əlavə ehtiyat avtobus ayrılmalıdır/);
     expect(alert.explanation.highForMin).toBeGreaterThanOrEqual(10);
 
+    // icra olunmamış tövsiyə varkən yenisi yaranmır, mövcudu yenilənir
+    for (let minute = 0; minute < 11; minute++) {
+      await send(n++);
+      await engine.tick();
+      clock.advance(60_000);
+    }
+    expect(engine.alerts.filter((a) => a.type === 'reserve' && a.routeId === 'M5')).toHaveLength(1);
+    expect(Number(alert.explanation.highForMin)).toBeGreaterThanOrEqual(20);
+
     const d = await request(app).post('/api/operator/dispatch').send({ routeId: 'M5', source: 'reserve', alertId: alert.id });
     expect(d.status).toBe(201);
     expect(engine.reservePool).toBe(1);
@@ -122,8 +140,8 @@ describe('API', () => {
   });
 
   it('ehtiyat bitəndə 409', async () => {
-    await request(app).post('/api/operator/dispatch').send({ routeId: 'M1', source: 'reserve' });
-    const r = await request(app).post('/api/operator/dispatch').send({ routeId: 'M1', source: 'reserve' });
+    await request(app).post('/api/operator/dispatch').send({ routeId: 'M2', source: 'reserve' });
+    const r = await request(app).post('/api/operator/dispatch').send({ routeId: 'M2', source: 'reserve' });
     expect(r.status).toBe(409);
   });
 

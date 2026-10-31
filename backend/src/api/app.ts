@@ -10,6 +10,7 @@ import type { Engine } from '../engine/engine.js';
 import type { Simulator } from '../sim/simulator.js';
 import type { Level } from '../engine/types.js';
 import { openapi } from './openapi.js';
+import { loadBackground } from '../engine/network.js';
 import { encode, serviceAlerts, staticZip, toJson, tripUpdates, vehiclePositions } from '../gtfs/gtfs.js';
 
 export interface AppDeps {
@@ -95,7 +96,10 @@ export function createApp(deps: AppDeps) {
 
   app.get('/api/network', (_req, res) => {
     const net = engine.net;
+    res.setHeader('Cache-Control', 'public, max-age=300');
     res.json({
+      defaultStop: net.defaultStop,
+      sources: net.sources,
       stops: [...net.stops.values()].map((s) => ({ ...s, routes: net.routesByStop.get(s.id) ?? [] })),
       routes: [...net.routes.values()].map((r) => ({
         id: r.id,
@@ -104,12 +108,22 @@ export function createApp(deps: AppDeps) {
         color: r.color,
         headwayMin: r.headwayMin,
         capacity: r.capacity,
+        plannedBuses: r.plannedBuses,
         stopIds: r.stopIds,
         forward: r.forward,
         backward: r.backward,
         loopStops: r.loopStops,
+        ridership: r.ridership,
       })),
     });
+  });
+
+  // Bütün AYNA xətləri (opendata.az, 243 xətt) — xəritədə fon qatı; canlı məlumat yalnız `live: true` olanlarda
+  let bg: unknown = null;
+  app.get('/api/network/background', (_req, res) => {
+    bg ??= loadBackground();
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(bg);
   });
 
   app.get('/api/state', (_req, res) => res.json(engine.liveState()));

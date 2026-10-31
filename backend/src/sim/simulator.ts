@@ -46,6 +46,15 @@ export function demandProfile(ts: number): number {
   return Math.min(1.1, 0.18 + 0.85 * bump(8.4, 0.9) + 0.75 * bump(18.6, 1.1) + 0.3 * bump(13.2, 1.6));
 }
 
+/** Günün profilinin inteqralı (saniyə): gündəlik gedişi saniyəlik intensivliyə çevirmək üçün. */
+export const PROFILE_INTEGRAL_S = (() => {
+  let s = 0;
+  for (let m = 0; m < 1440; m++) s += demandProfile(Date.UTC(2026, 0, 1, 0, m) - 4 * 3600_000) * 60;
+  return s;
+})();
+/** Kalibrləmə əmsalı: validasiya sayı ≠ unikal sərnişin; ehtiyat və pik saatın kəskinliyi üçün. */
+export const DEMAND_SCALE = Number(process.env.DEMAND_SCALE ?? 1.3);
+
 export function trueLevel(load: number, capacity: number): Level {
   const r = load / capacity;
   return r >= 0.85 ? 3 : r >= 0.5 ? 2 : 1;
@@ -73,7 +82,7 @@ export class Simulator {
     private sink: SimSink,
   ) {
     this.lastTs = sink.now();
-    this.honest = Array.from({ length: 400 }, (_, i) => ({ id: `sim-dev-${i}`, ip: `10.${(i * 7) % 250}.${i % 200}.${(i * 13) % 250}` }));
+    this.honest = Array.from({ length: 3000 }, (_, i) => ({ id: `sim-dev-${i}`, ip: `10.${(i * 7) % 250}.${i % 200}.${(i * 13) % 250}` }));
     for (const r of net.routes.values()) {
       const L = r.path.length;
       for (let i = 0; i < r.plannedBuses; i++) {
@@ -106,7 +115,7 @@ export class Simulator {
       this.scenarios = [];
       return { ok: true, message: 'Bütün ssenarilər dayandırıldı' };
     }
-    const defaults: Record<ScenarioName, string> = { peak: 'M6', fake: 'M1', bots: 'M3', traffic: '6', bunch: 'M2' };
+    const defaults: Record<ScenarioName, string> = { peak: '14', fake: '5', bots: 'M2', traffic: '6', bunch: '88' };
     const rid = routeId && this.net.routes.has(routeId) ? routeId : defaults[name];
     const dur: Record<ScenarioName, number> = { peak: 30, fake: 15, bots: 3, traffic: 15, bunch: 1 };
     this.scenarios = this.scenarios.filter((s) => !(s.name === name && s.routeId === rid));
@@ -168,7 +177,9 @@ export class Simulator {
     for (const r of this.net.routes.values()) {
       const peak = this.active('peak', r.id, now) ? 3 : 1;
       const traffic = this.active('traffic', r.id, now) ? 0.3 : 1;
-      const lambda = (2.2 * r.demand * profile * peak) / 60; // nəfər/san hər dayanacaq-istiqamət
+      // real gündəlik gediş (opendata.az) × həftə günü əmsalı × günün saatı profili → nəfər/san hər dayanacaqda
+      const dow = r.ridership.dow[new Date(now + 4 * 3600_000).getUTCDay()] ?? 1;
+      const lambda = (DEMAND_SCALE * r.ridership.recentDaily * dow * profile * peak) / (r.loopStops.length * PROFILE_INTEGRAL_S);
       for (const ls of r.loopStops) {
         const k = `${r.id}|${ls.seq}`;
         this.waiting.set(k, Math.min(160, (this.waiting.get(k) ?? 0) + lambda * dt));
@@ -257,7 +268,10 @@ export class Simulator {
     const k = `${r.id}|${seq}`;
     const w = this.waiting.get(k) ?? 0;
     const terminal = seq === 0 || Math.abs(d - r.forwardLength) < 5;
-    const alight = terminal ? b.load : b.load * (0.18 + this.rand() * 0.12);
+    // orta səfər ~6 km: hər dayanacaqda düşənlərin payı dayanacaqlar arası məsafədən asılıdır
+    const spacing = r.path.length / Math.max(1, r.loopStops.length);
+    const frac = Math.min(0.4, Math.max(0.04, spacing / 6000));
+    const alight = terminal ? b.load : b.load * frac * (0.8 + this.rand() * 0.4);
     b.load -= alight;
     const board = Math.min(w, r.capacity - b.load);
     b.load += board;

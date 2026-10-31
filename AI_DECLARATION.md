@@ -30,6 +30,14 @@ Bütün iş bir Claude Code sessiyasında aparılıb. Komanda üzvünün əsas s
 5. Tapşırıqdakı qaydanın dəqiq mətni təkrarlandı. *"Nə qədər crazy bonus ideyaların var yaz"*: AI 28 ideya təklif etdi.
 6. **Komanda bonusları seçdi** (1, 3, 6, 7, 9, 10, 11, 15, 16, 17, 18, 19, 20, 26) və tapşırdı: *"edge case-lər ola bilər ki, avtobus boşdur, camaat mırt yüksək sıxlıq qeyd edir, belə şeyləri nəzərdə tut… research elə, planla"*.
 7. *"Hamısını yığa bilərsən"* + skill-lərin istifadəsi (taste-skill, emilkowalski/skills, impeccable).
+8. Xəritə xətası: CARTO altlığı `API_KEY_REQUIRED` qaytarırdı. AI açarsız OpenStreetMap plitələrinə keçdi.
+9. *"Location verəndə mənim olduğum yer də göstərilsin… yollar çox monoton… UI çox clean elə, AYNA MaaS kimi… cramped"*. Komanda üzvü opendata.az-da tapdığı datasetlərin siyahısını verdi: marşrut həndəsəsi, dayanacaqlar, gündəlik gedişlər, problemləri ilə birlikdə. Tapşırıq: *"bu dataları istifadə elə, sayta qoş"*. AI bunları etdi:
+   - faylları yüklədi və yoxladı;
+   - `scripts/import-opendata.mjs` yazdı: xətt–dayanacaq əlaqəsi həndəsi yaxınlıqla qurulur;
+   - simulyatoru və proqnozu real gedişlərlə kalibrlədi;
+   - sərnişin UI-ını tam ekran xəritə və alt panel kimi yenidən qurdu;
+   - istifadəçinin yerini xəritədə göstərdi;
+   - operator panelini sadələşdirdi.
 
 **AI-nin etdiyi:**
 - mövzu araşdırması və mənbələr;
@@ -85,7 +93,8 @@ AI aşağıdakıları **təklif etdi**, komanda planı təsdiqlədi:
 | Real PostgreSQL ilə test | Sandbox shared memory (`shmget`) bloklayır. Eyni SQL PGlite-da test olunub | Docker-də `postgres` servisi ilə bir dəfə yoxlayın |
 | Brauzerdə vizual yoxlama (ekran görüntüsü) | Sandbox Chrome-un işə düşməsini blokladı (mach port) | UI-ı 1440 px və telefon ölçüsündə özünüz açıb baxın. Lint (`taste-skill`) 0 FAIL, jsdom smoke testləri keçir |
 | Git repo | Sandbox `.git/config` yazmağa icazə vermədi | `git init && git add . && git commit` əmrini özünüz icra edin |
-| Adi xətlərin (6, 17, 61, 88) dayanacaq siyahısı | Açıq mənbə tapılmadı | Təqdimatda "təxmini" olduğunu deyin və ya AYNA MaaS-dan dəqiqləşdirin |
+| Xətt ↔ dayanacaq əlaqəsi | Rəsmi məlumatda yoxdur; ≤25 m həndəsi yaxınlıqla qurulub | Bir neçə xətti AYNA MaaS ilə müqayisə edin |
+| Dayanacaq faylının lisenziyası | Göstərilməyib | Yenidən paylamazdan əvvəl Bakı Metropoliteni ilə dəqiqləşdirin |
 
 ---
 

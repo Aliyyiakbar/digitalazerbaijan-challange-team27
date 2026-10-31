@@ -83,7 +83,7 @@ export function TimeMachine({ net }: { net: Network }) {
           </section>
           <div className="dash-grid tm">
             <section className="panel mapp">
-              <MapView theme="dark" lines={lines} buses={(f?.buses ?? []).map((b) => ({ id: `${b.routeId}-${b.id}`, lat: b.lat, lon: b.lon, label: '', level: b.level }))} stops={[]} fitKey="tm" label="Seçilmiş andakı sıxlıq xəritəsi" />
+              <MapView theme="dark" lines={lines} buses={(f?.buses ?? []).map((b) => ({ id: `${b.routeId}-${b.id}`, lat: b.lat, lon: b.lon, label: '', level: b.level }))} stops={[]} fit={{ key: "tm", points: [[40.33, 49.75], [40.5, 50.05]] }} label="Seçilmiş andakı sıxlıq xəritəsi" />
             </section>
             <section className="panel">
               <header className="panel-head">
