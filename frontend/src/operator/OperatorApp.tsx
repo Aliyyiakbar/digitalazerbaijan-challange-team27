@@ -113,7 +113,7 @@ function Dashboard({ net, theme }: { net: Network; theme: 'light' | 'dark' }) {
   const tweenOpenCount = useTweenNumber(openCount);
   const tweenBusCount = useTweenNumber(buses.length);
   const tweenReports = useTweenNumber(reports10);
-  const mapBuses = buses.map((b) => ({ id: b.id, lat: b.lat, lon: b.lon, label: '', level: b.crowd.level, ring: b.bunchedFollower, reserve: b.reserve, dim: !!sel && sel !== b.routeId }));
+  const mapBuses = buses.map((b) => ({ id: b.id, lat: b.lat, lon: b.lon, label: '', level: b.crowd.level, color: LEVEL_COLOR[String(b.crowd.level ?? 'none')], ring: b.bunchedFollower, reserve: b.reserve, dim: !!sel && sel !== b.routeId }));
   const selRoute = routes.find((r) => r.id === sel);
 
   return (
