@@ -1,6 +1,7 @@
 // HTTP API (Express). Bütün yoxlamalar zod ilə; xəta mesajları Azərbaycan dilində.
 import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import swaggerUi from 'swagger-ui-express';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -73,6 +74,8 @@ export function createApp(deps: AppDeps) {
   app.set('trust proxy', true);
   app.use(cors({ origin: deps.corsOrigin === '*' ? true : deps.corsOrigin.split(',') }));
   app.use(express.json({ limit: '200kb' }));
+  // canlı xəritə cavabları böyükdür (overview ~750KB, network ~1.2MB) — gzip onları
+  app.use(compression());
 
   const isInternal = (req: Request) => {
     const k = req.header('x-internal-key');
