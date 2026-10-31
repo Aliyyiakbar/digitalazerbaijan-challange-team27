@@ -49,6 +49,11 @@
   outline: 1.5px solid currentColor;
 }
 
+/* açıq xəritə: OSM plitələri bir az solğunlaşdırılır ki, xətlər və avtobuslar önə çıxsın */
+.map-light .leaflet-tile-pane {
+  filter: saturate(0.35) contrast(0.95) brightness(1.03);
+}
+
 /* --- üst zolaq --- */
 .p-top {
   position: sticky;

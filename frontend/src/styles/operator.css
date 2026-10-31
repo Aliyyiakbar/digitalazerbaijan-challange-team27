@@ -759,6 +759,13 @@
 }
 
 /* --- leaflet tünd tənzimləmə --- */
+/* OSM plitələrindən tünd altlıq: yalnız plitələr çevrilir, xətlər və markerlər öz rəngində qalır */
+.map-dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4);
+}
+.map-dark .leaflet-container {
+  background: #191a1c;
+}
 .map-dark .leaflet-control-attribution {
   background: rgba(19, 18, 23, 0.8);
   color: var(--muted);

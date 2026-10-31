@@ -31,7 +31,7 @@ export default defineConfig({
           // canlı məlumat: əvvəl şəbəkə, alınmasa son cavab
           { urlPattern: /\/api\/(network|stops|routes|plan|state)/, handler: 'NetworkFirst', options: { cacheName: 'api', networkTimeoutSeconds: 4, expiration: { maxEntries: 80, maxAgeSeconds: 3600 } } },
           // xəritə plitələri: cache-first
-          { urlPattern: /basemaps\.cartocdn\.com/, handler: 'CacheFirst', options: { cacheName: 'tiles', expiration: { maxEntries: 600, maxAgeSeconds: 7 * 86400 } } },
+          { urlPattern: /tile\.openstreetmap\.org/, handler: 'CacheFirst', options: { cacheName: 'tiles', expiration: { maxEntries: 600, maxAgeSeconds: 7 * 86400 } } },
         ],
       },
     }),

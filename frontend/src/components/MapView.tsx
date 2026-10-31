@@ -1,4 +1,4 @@
-// Leaflet xəritəsi. Xətt həndəsəsi OpenStreetMap/OSRM-dən; altlıq CARTO (açıq/tünd).
+// Leaflet xəritəsi. Xətt həndəsəsi OpenStreetMap/OSRM-dən; altlıq OpenStreetMap plitələri (açarsız).
 import { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -32,10 +32,9 @@ export interface MapStop {
   selected?: boolean;
 }
 
-const TILES = {
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-};
+// OpenStreetMap standart plitələri: API açarı tələb etmir. Tünd tema eyni plitələrdən
+// CSS filtri ilə alınır (operator.css → .map-dark .leaflet-tile-pane).
+const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 function busIcon(b: MapBus) {
   const cls = ['bus-marker', `lvl-${b.level ?? 'none'}`, b.ring ? 'ring' : '', b.reserve ? 'reserve' : '', b.dim ? 'dim' : ''].join(' ');
@@ -77,7 +76,7 @@ export function MapView({
   return (
     <div className={`map map-${theme}`} role="region" aria-label={label}>
       <MapContainer center={[40.395, 49.86]} zoom={12} scrollWheelZoom zoomControl={false} attributionControl preferCanvas={false} style={{ height: '100%', width: '100%' }}>
-        <TileLayer url={TILES[theme]} attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' subdomains="abcd" />
+        <TileLayer url={TILE_URL} maxZoom={19} attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> töhfəçiləri' />
         <Fit bounds={bounds} deps={fitKey} />
         {lines.map((l) => (
           <Polyline key={l.id} positions={l.coords} pathOptions={{ color: l.color, weight: l.weight ?? 4, opacity: l.opacity ?? 0.9, dashArray: l.dash, lineCap: 'round', lineJoin: 'round' }}>

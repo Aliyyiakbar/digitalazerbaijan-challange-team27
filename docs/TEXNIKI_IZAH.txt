@@ -83,7 +83,7 @@ Engine-in hər dövrü (1 saniyə):
   - İsti məlumat  |  Redis 7  |  HASH bus:pos (son mövqelər), ZSET win:{route} (10 dəqiqəlik sürüşən pəncərə, score = vaxt), rl:* (spam limiti, TTL). Bütün əməliyyatlar O(log n).
   - Daimi məlumat  |  PostgreSQL 16 (Docker), PGlite (lokal)  |  Bildirişlərin auditi, xəbərdarlıqların tarixçəsi, snapshot-lar (vaxt maşını və proqnoz). PGlite eyni SQL-i WASM-da işlədir: lokal demo üçün quraşdırma tələb olunmur.
   - Frontend  |  React 19, Vite, react-leaflet, vite-plugin-pwa  |  PWA: telefona quraşdırılır, offline açılır, bildirişlər növbəyə yığılır. Leaflet yüngüldür, OSM ilə işləyir.
-  - Xəritə  |  OpenStreetMap + CARTO altlığı  |  Açıq və pulsuzdur. Xətt həndəsəsi OSRM ilə real yollar üzrə çəkilib.
+  - Xəritə  |  OpenStreetMap plitələri  |  Açıq, pulsuz, API açarı tələb etmir; tünd tema CSS filtri ilə. Xətt həndəsəsi OSRM ilə real yollar üzrə çəkilib.
   - Açıq standart  |  GTFS + GTFS-Realtime (protobuf)  |  Sıxlıq məlumatını AYNA MaaS, Google Maps və digər tətbiqlərə standart formatda ötürməyə imkan verir.
   - Konteyner  |  Docker Compose: 5 servis  |  postgres, redis, backend, simulator, frontend (nginx).
 
