@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Accessibility, BusFront, Compass, Download, Layers as LayersIcon, LocateFixed, PanelRightOpen, Route as RouteIcon, Search, Star, WifiOff } from 'lucide-react';
 import { MapView } from '../components/MapView';
 import { Sheet, useIsDesktop, type Snap } from '../components/Sheet';
+import { locationControlLabel } from '../lib/geo';
 import { HomeView } from './HomeView';
 import { LinesView } from './LinesView';
 import { NetworkPanel } from './NetworkPanel';
@@ -154,16 +155,17 @@ export function PassengerApp() {
       <div className="fab-col">
         <button
           type="button"
-          className={`fab ${locStatus === 'on' ? 'on' : ''}`}
+          className={`fab ${locStatus === 'on' ? 'on' : ''} ${locStatus === 'locating' ? 'locating' : ''}`}
+          disabled={locStatus === 'locating'}
           onClick={() => {
             locate();
             refit();
             if (view.kind !== 'home' && view.kind !== 'stop') go({ kind: 'home' });
           }}
-          aria-label="Yerimi göstər"
-          title={locStatus === 'denied' ? 'Yer icazəsi verilməyib' : 'Yerimi göstər'}
+          aria-label={locationControlLabel(locStatus)}
+          title={locationControlLabel(locStatus)}
         >
-          <LocateFixed size={20} aria-hidden />
+          <LocateFixed size={20} aria-hidden className={locStatus === 'locating' ? 'locate-spin' : undefined} />
         </button>
         {!prefs.simple && (
           <div className="menu-wrap">

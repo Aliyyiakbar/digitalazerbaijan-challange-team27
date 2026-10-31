@@ -2,7 +2,7 @@
 import { ChevronRight, LocateFixed, MapPin, Navigation } from 'lucide-react';
 import type { Network } from '../api';
 import { RouteBadge } from '../components/Crowd';
-import { distM, fmtDist, walkMin, type LocStatus, type Pos } from '../lib/geo';
+import { distM, fmtDist, locationStatusMessage, walkMin, type LocStatus, type Pos } from '../lib/geo';
 
 export function HomeView({ net, pos, locStatus, compact, onLocate, onStop, onRoute, onPlan }: { net: Network; pos: Pos | null; locStatus: LocStatus; compact?: boolean; onLocate: () => void; onStop: (id: string) => void; onRoute: (id: string) => void; onPlan: () => void }) {
   const color = new Map(net.routes.map((r) => [r.id, r.color]));
@@ -14,6 +14,8 @@ export function HomeView({ net, pos, locStatus, compact, onLocate, onStop, onRou
     : null;
   const hubs = [...net.stops].sort((a, b) => b.routes.length - a.routes.length).slice(0, 6);
   const list = nearby ?? hubs.map((s) => ({ s, d: null as number | null }));
+  const locationMessage = locationStatusMessage(locStatus);
+  const locating = locStatus === 'locating';
 
   return (
     <div className="view home">
@@ -27,13 +29,13 @@ export function HomeView({ net, pos, locStatus, compact, onLocate, onStop, onRou
         <div className="sec-head">
           <h2 id="near-title">{nearby ? 'Yaxınlıqdakı dayanacaqlar' : 'Əsas dayanacaqlar'}</h2>
           {!nearby && (
-            <button type="button" className="link-btn" onClick={onLocate} disabled={locStatus === 'locating'}>
-              <LocateFixed size={15} aria-hidden /> {locStatus === 'locating' ? 'Axtarılır…' : 'Yaxınlıqdakıları göstər'}
+            <button type="button" className="link-btn" onClick={onLocate} disabled={locating} aria-busy={locating}>
+              <LocateFixed size={15} aria-hidden className={locating ? 'locate-spin' : undefined} />
+              <span>{locating ? 'Axtarılır…' : locationMessage ? 'Yenidən cəhd et' : 'Yaxınlıqdakıları göstər'}</span>
             </button>
           )}
         </div>
-        {locStatus === 'denied' && <p className="hint">Yer icazəsi verilməyib. Brauzerin ünvan zolağındakı kilid işarəsindən icazə verə bilərsiniz.</p>}
-        {locStatus === 'unavailable' && <p className="hint">Yer təyini yalnız HTTPS və ya localhost ünvanında işləyir.</p>}
+        {locationMessage && <p className="hint location-error" role="status">{locationMessage}</p>}
         <ul className="stop-list">
           {list.map(({ s, d }) => (
             <li key={s.id}>

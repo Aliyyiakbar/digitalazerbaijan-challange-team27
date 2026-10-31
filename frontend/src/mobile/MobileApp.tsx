@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Compass, Download, LocateFixed, Monitor, Route as RouteIcon, Search, BusFront, Star, WifiOff } from 'lucide-react';
 import { BottomSheet, snapHeight, useStageHeight, type SheetSnap } from '../components/BottomSheet';
 import { MapView } from '../components/MapView';
+import { locationControlLabel } from '../lib/geo';
 import { HomeView } from '../passenger/HomeView';
 import { LinesView } from '../passenger/LinesView';
 import { PlannerView } from '../passenger/PlannerView';
@@ -156,16 +157,17 @@ export function MobileApp() {
         {!page && snap !== 'full' && (
           <button
             type="button"
-            className={`fab m-locate ${locStatus === 'on' ? 'on' : ''}`}
+            className={`fab m-locate ${locStatus === 'on' ? 'on' : ''} ${locStatus === 'locating' ? 'locating' : ''}`}
+            disabled={locStatus === 'locating'}
             style={{ bottom: snapHeight(snap, stage, TOP_GAP) + 12 }}
             onClick={() => {
               locate();
               refit();
             }}
-            aria-label="Yerimi göstər"
-            title={locStatus === 'denied' ? 'Yer icazəsi verilməyib' : 'Yerimi göstər'}
+            aria-label={locationControlLabel(locStatus)}
+            title={locationControlLabel(locStatus)}
           >
-            <LocateFixed size={20} aria-hidden />
+            <LocateFixed size={20} aria-hidden className={locStatus === 'locating' ? 'locate-spin' : undefined} />
           </button>
         )}
 

@@ -30,36 +30,64 @@ export function distM(a: { lat: number; lon: number }, b: { lat: number; lon: nu
 
 export type LocStatus = 'idle' | 'locating' | 'on' | 'denied' | 'unavailable';
 
-/** İstifadəçinin yeri: icazə bir dəfə verilibsə, növbəti açılışda avtomatik izlənir. */
+export function locationStatusMessage(status: LocStatus): string | null {
+  if (status === 'denied') return 'İcazə verilmədi';
+  if (status === 'unavailable') return 'Yer tapılmadı — yenidən cəhd et';
+  return null;
+}
+
+export function locationControlLabel(status: LocStatus): string {
+  return locationStatusMessage(status) ?? (status === 'locating' ? 'Axtarılır…' : 'Yerimi göstər');
+}
+
+/** İcazə əvvəl verilibsə, növbəti açılışda məkanı yenidən alır. */
 export function useUserLocation() {
   const [pos, setPos] = useState<Pos | null>(null);
   const [status, setStatus] = useState<LocStatus>('idle');
-  const watch = useRef<number | null>(null);
+  const requestId = useRef(0);
+  const activeRequest = useRef<number | null>(null);
+  const watchdog = useRef<number | null>(null);
   const start = useCallback(() => {
     if (!('geolocation' in navigator) || !window.isSecureContext) {
       setStatus('unavailable');
       return;
     }
-    if (watch.current != null) return;
+    if (activeRequest.current !== null) return;
+    const id = ++requestId.current;
+    activeRequest.current = id;
     setStatus('locating');
-    watch.current = navigator.geolocation.watchPosition(
-      (p) => {
-        setPos({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy });
-        setStatus('on');
-        localStorage.setItem('stb.loc', 'on');
-      },
-      (e) => {
-        setStatus(e.code === e.PERMISSION_DENIED ? 'denied' : 'unavailable');
-        if (watch.current != null) navigator.geolocation.clearWatch(watch.current);
-        watch.current = null;
-      },
-      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 15_000 },
-    );
+    const finish = (next: LocStatus) => {
+      if (activeRequest.current !== id) return;
+      if (watchdog.current !== null) window.clearTimeout(watchdog.current);
+      watchdog.current = null;
+      activeRequest.current = null;
+      setStatus(next);
+    };
+    watchdog.current = window.setTimeout(() => finish('unavailable'), 10_000);
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          if (activeRequest.current !== id) return;
+          setPos({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy });
+          try {
+            localStorage.setItem('stb.loc', 'on');
+          } catch {}
+          finish('on');
+        },
+        (e) => finish(e.code === 1 ? 'denied' : 'unavailable'),
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      );
+    } catch {
+      finish('unavailable');
+    }
   }, []);
   useEffect(() => {
     if (localStorage.getItem('stb.loc') === 'on') start();
     return () => {
-      if (watch.current != null) navigator.geolocation.clearWatch(watch.current);
+      if (watchdog.current !== null) window.clearTimeout(watchdog.current);
+      watchdog.current = null;
+      activeRequest.current = null;
+      requestId.current += 1;
     };
   }, [start]);
   return { pos, status, start };

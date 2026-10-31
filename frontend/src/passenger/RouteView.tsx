@@ -30,23 +30,25 @@ export function RouteView({ net, live, routeId, dir, setDir, starred, onStar, ri
 
   return (
     <div className="view route">
-      <header className="view-head">
-        <button type="button" className="back" onClick={onBack} aria-label="Geri">
-          <ArrowLeft size={20} aria-hidden />
-        </button>
-        <RouteBadge id={route.id} color={route.color} size="lg" />
+      <header className="view-head route-head">
+        <div className="route-head-actions">
+          <button type="button" className="back" onClick={onBack} aria-label="Geri">
+            <ArrowLeft size={20} aria-hidden />
+          </button>
+          <RouteBadge id={route.id} color={route.color} size="lg" />
+          {onStar && (
+            <button type="button" className={`star ${starred ? 'on' : ''}`} onClick={onStar} aria-pressed={!!starred} aria-label={starred ? 'Seçilmişlərdən çıxar' : 'Seçilmişlərə əlavə et'}>
+              <Star size={20} aria-hidden />
+            </button>
+          )}
+        </div>
         <div className="view-title">
-          <h1 id="route-title">{route.name}</h1>
+          <h1 id="route-title" title={route.name}>{route.name}</h1>
           <p className="sub">
             {buses.length} avtobus xətdə · hər {route.headwayMin} dəq
             {rv?.crowd.level ? ` · sıxlıq: ${rv.crowd.level === 3 ? 'yüksək' : rv.crowd.level === 2 ? 'orta' : 'aşağı'}` : ''}
           </p>
         </div>
-        {onStar && (
-          <button type="button" className={`star ${starred ? 'on' : ''}`} onClick={onStar} aria-pressed={!!starred} aria-label={starred ? 'Seçilmişlərdən çıxar' : 'Seçilmişlərə əlavə et'}>
-            <Star size={20} aria-hidden />
-          </button>
-        )}
       </header>
 
       <div className="seg dirs" role="radiogroup" aria-label="İstiqamət">
