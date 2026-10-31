@@ -51,6 +51,7 @@ const hav = (a, b) => {
 };
 const K = Math.cos(rad(40.4));
 const xy = ([lat, lon]) => [rad(lon) * K * R, rad(lat) * R];
+const polyLen = (pts) => pts.reduce((s, p, i) => (i ? s + hav(pts[i - 1], p) : 0), 0);
 
 function rdp(pts, tol) {
   if (pts.length < 3) return pts;
@@ -109,9 +110,22 @@ function parseKml(text) {
       const end = line[line.length - 1];
       line = hav(end, p[0]) <= hav(end, p[p.length - 1]) ? line.concat(p) : line.concat([...p].reverse());
     }
-    out.push({ name, line });
+    // Bəzi xətlərdə əsas həlqədən başqa qısa parçalar var (məs. 120: 56 km + 3 qısa parça). Onlar
+    // birləşdirilsə xətt "açıq" görünür və yalançı geri dönüşlə iki qat uzanır.
+    const longest = parts.reduce((a, b) => (polyLen(b) > polyLen(a) ? b : a));
+    const total = parts.reduce((a, b) => a + polyLen(b), 0);
+    out.push({ name, line, main: polyLen(longest) >= total * 0.8 ? longest : line });
   }
   return out;
+}
+
+/** Eyni adlı iki açıq xətt uc-uca gəlirsə, onlar gediş və qayıdışdır (məs. 1 nömrəli xətt). */
+function routeLine(all) {
+  const mains = all.map((s) => s.main);
+  if (mains.length === 2 && hav(mains[0][mains[0].length - 1], mains[1][0]) < 500 && hav(mains[1][mains[1].length - 1], mains[0][0]) < 500) return mains[0].concat(mains[1]);
+  const main = mains.reduce((a, b) => (polyLen(b) > polyLen(a) ? b : a));
+  if (hav(main[0], main[main.length - 1]) <= 500) return main;
+  return main.concat([...main].reverse().slice(1)); // açıq xətt: eyni yolla qayıdır
 }
 
 function parseCsv(text) {
@@ -173,6 +187,64 @@ function near(lat, lon) {
 }
 
 const LINK_M = 25;
+const CENTERLINE_M = 8; // yol oxuna bu qədər yaxın dayanacağın hansı tərəfdə olduğu bilinmir
+const dirStats = { rightBefore: 0, leftBefore: 0, right: 0, left: 0, reversed: 0 };
+
+/** Dayanacaqları xəttə bağlayır: hər "keçid" üçün ən yaxın nöqtə, məsafə və yolun hansı tərəfi. */
+function linkStops(line) {
+  const cum = [0];
+  for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + hav(line[i - 1], line[i]));
+  const P = line.map(xy);
+  const hits = new Map(); // stopId → [{d, off, seg, cross}]
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = P[i - 1];
+    const [bx, by] = P[i];
+    const vx = bx - ax;
+    const vy = by - ay;
+    const L2 = vx * vx + vy * vy || 1;
+    const cands = new Set([...near(line[i - 1][0], line[i - 1][1]), ...near(line[i][0], line[i][1])]);
+    for (const s of cands) {
+      const [px, py] = xy([s.lat, s.lon]);
+      const t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / L2));
+      const off = Math.hypot(px - ax - vx * t, py - ay - vy * t);
+      if (off > LINK_M) continue;
+      const d = cum[i - 1] + (cum[i] - cum[i - 1]) * t;
+      const cross = vx * (py - ay) - vy * (px - ax); // mənfi: hərəkətin sağında
+      if (!hits.has(s.id)) hits.set(s.id, []);
+      hits.get(s.id).push({ d, off, seg: i, cross });
+    }
+  }
+  const passes = [];
+  for (const [id, hs] of hits) {
+    hs.sort((a, b) => a.seg - b.seg);
+    // ardıcıl seqmentlər bir keçiddir; hər keçiddən ən yaxın nöqtə
+    let group = [hs[0]];
+    const flush = () => passes.push({ stopId: id, ...group.reduce((a, b) => (b.off < a.off ? b : a)) });
+    for (const h of hs.slice(1)) {
+      if (h.seg - group[group.length - 1].seg <= 2) group.push(h);
+      else {
+        flush();
+        group = [h];
+      }
+    }
+    flush();
+  }
+  return { cum, passes };
+}
+
+function countSides(passes) {
+  const n = new Map();
+  for (const p of passes) n.set(p.stopId, (n.get(p.stopId) ?? 0) + 1);
+  let right = 0;
+  let left = 0;
+  for (const p of passes) {
+    if (n.get(p.stopId) !== 1 || p.off <= CENTERLINE_M) continue;
+    if (p.cross < 0) right++;
+    else left++;
+  }
+  return { right, left };
+}
+
 const seenNames = new Set();
 const routes = [];
 const HUE_STEP = 137.508;
@@ -192,12 +264,23 @@ function color(i) {
 for (const sh of shapes) {
   if (!pax.has(sh.name) || seenNames.has(sh.name)) continue;
   seenNames.add(sh.name);
-  let line = sh.line;
-  const closed = hav(line[0], line[line.length - 1]) < 300;
-  if (!closed) line = line.concat([...line].reverse().slice(1));
-  line = rdp(line, 4).map(([a, b]) => [r6(a), r6(b)]);
-  const cum = [0];
-  for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + hav(line[i - 1], line[i]));
+  let line = rdp(routeLine(shapes.filter((s) => s.name === sh.name)), 4).map(([a, b]) => [r6(a), r6(b)]);
+  let linked = linkStops(line);
+
+  // İstiqamət: faylda xətlər çox vaxt hərəkətin əksinə çəkilib. Azərbaycanda hərəkət sağdandır,
+  // ona görə bir dəfə keçilən dayanacaqların çoxu solda qalırsa, xətt tərsinə çevrilir.
+  let side = countSides(linked.passes);
+  dirStats.rightBefore += side.right;
+  dirStats.leftBefore += side.left;
+  if (side.left > side.right) {
+    line = [...line].reverse();
+    linked = linkStops(line);
+    side = countSides(linked.passes);
+    dirStats.reversed++;
+  }
+  dirStats.right += side.right;
+  dirStats.left += side.left;
+  const { cum } = linked;
   const L = cum[cum.length - 1];
   // dönüş nöqtəsi: başlanğıcdan ən uzaq nöqtə
   let turn = 0;
@@ -211,40 +294,13 @@ for (const sh of shapes) {
   });
   const fwdLen = cum[turn];
 
-  // dayanacaqları xəttə bağla: hər "keçid" üçün ən yaxın nöqtə
-  const P = line.map(xy);
-  const hits = new Map(); // stopId → [{d, off, seg}]
-  for (let i = 1; i < line.length; i++) {
-    const [ax, ay] = P[i - 1];
-    const [bx, by] = P[i];
-    const vx = bx - ax;
-    const vy = by - ay;
-    const L2 = vx * vx + vy * vy || 1;
-    const cands = new Set([...near(line[i - 1][0], line[i - 1][1]), ...near(line[i][0], line[i][1])]);
-    for (const s of cands) {
-      const [px, py] = xy([s.lat, s.lon]);
-      const t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / L2));
-      const off = Math.hypot(px - ax - vx * t, py - ay - vy * t);
-      if (off > LINK_M) continue;
-      const d = cum[i - 1] + (cum[i] - cum[i - 1]) * t;
-      if (!hits.has(s.id)) hits.set(s.id, []);
-      hits.get(s.id).push({ d, off, seg: i });
-    }
-  }
-  let cand = [];
-  for (const [id, hs] of hits) {
-    hs.sort((a, b) => a.seg - b.seg);
-    // ardıcıl seqmentlər bir keçiddir; hər keçiddən ən yaxın nöqtə
-    let group = [hs[0]];
-    const flush = () => cand.push({ stopId: id, ...group.reduce((a, b) => (b.off < a.off ? b : a)) });
-    for (const h of hs.slice(1)) {
-      if (h.seg - group[group.length - 1].seg <= 2) group.push(h);
-      else {
-        flush();
-        group = [h];
-      }
-    }
-    flush();
+  // eyni küçədən gediş və qayıdış keçirsə, dayanacaq sağda qaldığı istiqamətə aiddir
+  const byStop = new Map();
+  for (const p of linked.passes) byStop.set(p.stopId, [...(byStop.get(p.stopId) ?? []), p]);
+  const cand = [];
+  for (const passes of byStop.values()) {
+    const right = passes.filter((p) => p.off <= CENTERLINE_M || p.cross < 0);
+    cand.push(...(passes.length > 1 && right.length ? right : passes));
   }
   // yaxın (70 m) dayanacaqlardan yalnız xəttə ən yaxın olanı saxla (küçənin qarşı tərəfi və s.)
   cand.sort((a, b) => a.d - b.d);
@@ -322,3 +378,8 @@ const stopsPerRoute = routes.map((r) => r.stops.length);
 console.log(`canlı xətlər: ${routes.length}, dayanacaqlar: ${used.size}/${allStops.length}, dayanacaq/xətt: ${Math.min(...stopsPerRoute)}–${Math.max(...stopsPerRoute)}`);
 console.log(`avtobuslar: ${routes.reduce((a, r) => a + r.buses, 0)}, ilkin dayanacaq: ${stops[defaultStop].name} (${count.get(defaultStop)} xətt)`);
 console.log(`fon şəbəkəsi: ${bg.length} xətt`);
+console.log(`istiqamət: faylda sağda ${dirStats.rightBefore}, solda ${dirStats.leftBefore}; ${dirStats.reversed} xətt çevrildi, indi sağ pay ${Math.round((dirStats.right / Math.max(1, dirStats.right + dirStats.left)) * 100)}%`);
+for (const id of ['1', '14', '88', '120', '141E', 'M6']) {
+  const r = routes.find((x) => x.id === id);
+  if (r) console.log(`  ${id}: ${(r.length / 1000).toFixed(1)} km, gediş ${r.stops.filter((s) => s.d < r.fwdLen - 30).length} + qayıdış ${r.stops.filter((s) => s.d >= r.fwdLen - 30).length} dayanacaq, ${r.buses} avtobus | ${r.name}`);
+}

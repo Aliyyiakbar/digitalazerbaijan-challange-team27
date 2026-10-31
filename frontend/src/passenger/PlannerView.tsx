@@ -1,7 +1,7 @@
 // "Haradan → Haraya": sıxlığı nəzərə alan marşrut planı. Variantlar hiss olunan vaxta görə sıralanır.
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDownUp, ArrowLeft, Circle, MapPin } from 'lucide-react';
-import { api, type Network, type PlanResult } from '../api';
+import { api, type Journey, type Network, type PlanResult } from '../api';
 import { RouteBadge } from '../components/Crowd';
 import { fmtMin, LEVEL_TEXT } from '../lib/format';
 import { distM, type Pos } from '../lib/geo';
@@ -53,10 +53,20 @@ function StopField({ net, label, value, onChange, icon }: { net: Network; label:
   );
 }
 
-export function PlannerView({ net, pos, from, setFrom, onBack }: { net: Network; pos: Pos | null; from: string | null; setFrom: (id: string) => void; onBack: () => void }) {
+export function PlannerView({ net, pos, from, setFrom, onBack, onJourney, showHead = true }: { net: Network; pos: Pos | null; from: string | null; setFrom: (id: string) => void; onBack: () => void; onJourney?: (j: Journey | null) => void; showHead?: boolean }) {
   const [to, setTo] = useState<string | null>(() => localStorage.getItem('stb.to'));
   const [res, setRes] = useState<PlanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [picked, setPicked] = useState(0);
+
+  // Canlı yenilənmədə seçilmiş variant xəritədə qalsın; xətt tərkibi dəyişəndə birinciyə qayıt
+  const journey = res?.journeys[picked] ?? res?.journeys[0] ?? null;
+  const journeyKey = journey ? journey.legs.map((l) => `${l.routeId}:${l.fromStopId}:${l.toStopId}`).join() : '';
+  useEffect(() => {
+    onJourney?.(journey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [journeyKey]);
+  useEffect(() => setPicked(0), [from, to]);
 
   useEffect(() => {
     if (!from && pos) setFrom([...net.stops].sort((a, b) => distM(pos, a) - distM(pos, b))[0].id);
@@ -86,12 +96,18 @@ export function PlannerView({ net, pos, from, setFrom, onBack }: { net: Network;
 
   return (
     <div className="view plan">
-      <header className="view-head">
-        <button type="button" className="back" onClick={onBack} aria-label="Geri">
-          <ArrowLeft size={20} aria-hidden />
-        </button>
-        <h1 id="plan-title">Marşrut planı</h1>
-      </header>
+      {showHead ? (
+        <header className="view-head">
+          <button type="button" className="back" onClick={onBack} aria-label="Geri">
+            <ArrowLeft size={20} aria-hidden />
+          </button>
+          <h1 id="plan-title">Marşrut planı</h1>
+        </header>
+      ) : (
+        <h1 id="plan-title" className="page-title">
+          Marşrut planı
+        </h1>
+      )}
       <div className="od">
         <div className="od-fields">
           <StopField net={net} label="Haradan" value={from} onChange={setFrom} icon={<Circle size={14} aria-hidden className="od-ico" />} />
@@ -117,7 +133,7 @@ export function PlannerView({ net, pos, from, setFrom, onBack }: { net: Network;
       {res && !res.journeys.length && <p className="hint">Bu iki dayanacaq arasında ən çox bir köçürmə ilə gedən variant tapılmadı.</p>}
       <ol className="journeys">
         {res?.journeys.map((j, i) => (
-          <li key={i} className="journey">
+          <li key={i} className={`journey ${i === picked ? 'picked' : ''}`} onClick={() => setPicked(i)}>
             <div className="j-top">
               <span className="j-time">{fmtMin(j.totalS)}</span>
               <span className="j-tags">

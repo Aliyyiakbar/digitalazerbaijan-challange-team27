@@ -4,7 +4,7 @@ import type { Network } from '../api';
 import { RouteBadge } from '../components/Crowd';
 import { distM, fmtDist, walkMin, type LocStatus, type Pos } from '../lib/geo';
 
-export function HomeView({ net, pos, locStatus, onLocate, onStop, onRoute, onPlan }: { net: Network; pos: Pos | null; locStatus: LocStatus; onLocate: () => void; onStop: (id: string) => void; onRoute: (id: string) => void; onPlan: () => void }) {
+export function HomeView({ net, pos, locStatus, compact, onLocate, onStop, onRoute, onPlan }: { net: Network; pos: Pos | null; locStatus: LocStatus; compact?: boolean; onLocate: () => void; onStop: (id: string) => void; onRoute: (id: string) => void; onPlan: () => void }) {
   const color = new Map(net.routes.map((r) => [r.id, r.color]));
   const nearby = pos
     ? net.stops
@@ -60,19 +60,21 @@ export function HomeView({ net, pos, locStatus, onLocate, onStop, onRoute, onPla
         </ul>
       </section>
 
-      <section aria-labelledby="lines-title">
-        <div className="sec-head">
-          <h2 id="lines-title">Xətlər</h2>
-          <span className="count">{net.routes.length} xətt canlı</span>
-        </div>
-        <div className="route-grid">
-          {net.routes.map((r) => (
-            <button key={r.id} type="button" className="route-tile" style={{ ['--route' as string]: r.color }} onClick={() => onRoute(r.id)} aria-label={`${r.id}: ${r.name}`}>
-              {r.id}
-            </button>
-          ))}
-        </div>
-      </section>
+      {!compact && (
+        <section aria-labelledby="lines-title">
+          <div className="sec-head">
+            <h2 id="lines-title">Xətlər</h2>
+            <span className="count">{net.routes.length} xətt canlı</span>
+          </div>
+          <div className="route-grid">
+            {net.routes.map((r) => (
+              <button key={r.id} type="button" className="route-tile" style={{ ['--route' as string]: r.color }} onClick={() => onRoute(r.id)} aria-label={`${r.id}: ${r.name}`}>
+                {r.id}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       <p className="source">
         Xətlər, dayanacaqlar və gündəlik gedişlər: <a href="https://opendata.az" target="_blank" rel="noreferrer">opendata.az</a> (AYNA, Bakı Metropoliteni). Avtobusların hərəkəti simulyasiyadır.
       </p>

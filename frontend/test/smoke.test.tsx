@@ -15,6 +15,7 @@ import forecast from './fixtures/forecast.json';
 import sim from './fixtures/sim.json';
 import { PassengerApp } from '../src/passenger/PassengerApp';
 import { OperatorApp } from '../src/operator/OperatorApp';
+import { MobileApp } from '../src/mobile/MobileApp';
 
 const posted: Array<{ url: string; body: unknown }> = [];
 
@@ -120,6 +121,73 @@ describe('sərnişin modulu', () => {
     await screen.findByRole('button', { name: /Haraya gedirsiniz/ });
     expect(document.querySelector('.p-map')).toBeNull();
     localStorage.clear();
+  });
+});
+
+describe('mobil tətbiq (/mobile)', () => {
+  it('aşağı bölmələr: xəritə, marşrut, xətlər, seçilmişlər', async () => {
+    localStorage.clear();
+    at('/mobile', <MobileApp />);
+    const nav = await screen.findByRole('navigation', { name: 'Bölmələr' });
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Xəritə', 'Marşrut', 'Xətlər', 'Seçilmişlər']);
+    expect(await screen.findByRole('button', { name: /Haraya gedirsiniz/ })).toBeTruthy();
+    expect(document.querySelector('.route-tile')).toBeNull(); // ana paneldə xətt şəbəkəsi yoxdur
+    fireEvent.click(within(nav).getByRole('button', { name: 'Xətlər' }));
+    expect(await screen.findByRole('heading', { name: 'Xətlər' })).toBeTruthy();
+    await waitFor(() => expect(document.querySelectorAll('.line-list li').length).toBeGreaterThan(50));
+    fireEvent.click(within(nav).getByRole('button', { name: 'Seçilmişlər' }));
+    expect(await screen.findByText(/ulduza toxunun/)).toBeTruthy();
+    expect(screen.getByRole('switch', { name: /Sadə rejim/ })).toBeTruthy();
+  });
+
+  it('xətt: gediş və qayıdış ayrı dayanacaqlar göstərir, seçim saxlanılır', async () => {
+    localStorage.clear();
+    at('/mobile/route/14', <MobileApp />);
+    const dirs = await screen.findByRole('radiogroup', { name: 'İstiqamət' });
+    const count = () => document.querySelectorAll('.timeline li').length;
+    await waitFor(() => expect(count()).toBeGreaterThan(5));
+    const first = document.querySelector('.tl-name')!.textContent;
+    fireEvent.click(within(dirs).getByRole('radio', { name: /Qayıdış/ }));
+    await waitFor(() => expect(document.querySelector('.tl-name')!.textContent).not.toBe(first));
+    expect(within(dirs).getByRole('radio', { name: /Qayıdış/ }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Seçilmişlərə əlavə et' })[0]);
+    expect(JSON.parse(localStorage.getItem('stb.saved')!).routes).toEqual(['14']);
+    localStorage.clear();
+  });
+
+  it('panel sürüklənir və düymə ilə də vəziyyət dəyişir', async () => {
+    localStorage.clear();
+    at('/mobile', <MobileApp />);
+    const grip = await screen.findByRole('button', { name: 'Paneli genişləndir' });
+    const body = document.querySelector('.m-sheet-body') as HTMLElement;
+    const peek = parseInt(body.style.height, 10);
+    fireEvent.click(grip);
+    await waitFor(() => expect(parseInt(body.style.height, 10)).toBeGreaterThan(peek));
+  });
+});
+
+describe('kompüter versiyası', () => {
+  it('xətlər bölməsi süzür, "/" axtarışı açır, Esc geri qaytarır', async () => {
+    localStorage.clear();
+    at('/lines', <PassengerApp />);
+    fireEvent.change(await screen.findByPlaceholderText(/Nömrə və ya dayanacaq/), { target: { value: '14' } });
+    await waitFor(() => expect(document.querySelectorAll('.line-list li').length).toBeLessThan(20));
+    expect(document.querySelector('.line-list')!.textContent).toContain('14');
+    fireEvent.click(screen.getByRole('radio', { name: 'Seçilmiş' }));
+    fireEvent.keyDown(window, { key: '/' });
+    expect(await screen.findByPlaceholderText(/Dayanacaq və ya xətt nömrəsi/)).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByPlaceholderText(/Dayanacaq və ya xətt nömrəsi/)).toBeNull());
+  });
+
+  it('birbaşa keçid: dayanacaq və xətt ünvandan açılır, naməlum ünvan ana səhifəyə qayıdır', async () => {
+    localStorage.clear();
+    const stop = (network as { stops: Array<{ id: string; name: string }> }).stops[0];
+    at(`/stop/${stop.id}`, <PassengerApp />);
+    expect(await screen.findByRole('heading', { level: 1, name: stop.name })).toBeTruthy();
+    cleanup();
+    at('/route/YOXDUR', <PassengerApp />);
+    expect(await screen.findByRole('button', { name: /Haraya gedirsiniz/ })).toBeTruthy();
   });
 });
 

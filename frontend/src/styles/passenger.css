@@ -812,8 +812,10 @@
   border-radius: 8px;
   text-align: left;
 }
-.field-pop button:hover {
-  background: var(--raised);
+@media (hover: hover) and (pointer: fine) {
+  .field-pop button:hover {
+    background: var(--raised);
+  }
 }
 .journeys {
   display: grid;
@@ -869,4 +871,430 @@
   display: grid;
   gap: 4px;
   font-size: 14px;
+}
+
+/* --- ortaq əlavələr: səhifə başlığı, seçilmişlər, xətt siyahısı, gediş və qayıdış --- */
+.page-title {
+  font-size: calc(var(--fs) * 1.6);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin-bottom: 12px;
+}
+.view-title {
+  flex: 1;
+  min-width: 0;
+}
+.star {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--muted);
+  transition: transform 120ms var(--ease-out);
+}
+.star.on {
+  color: #c98a00;
+}
+.star.on svg {
+  fill: currentColor;
+}
+.star:active {
+  transform: scale(0.9);
+}
+.pin.saved {
+  color: #c98a00;
+  fill: #c98a00;
+}
+.next-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.filter-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--muted);
+}
+.filter-box input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+  font-size: 16px;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+.pill-group {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pill-group::-webkit-scrollbar {
+  display: none;
+}
+.pill-group button {
+  flex: none;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 18px;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: transform 120ms var(--ease-out);
+}
+.pill-group button.on {
+  background: #0f1419;
+  color: #fff;
+}
+.pill-group button:active {
+  transform: scale(0.96);
+}
+.sort-box select {
+  height: 36px;
+  max-width: 112px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--raised);
+  font-size: 13.5px;
+}
+.line-list li + li button {
+  border-top: 1px solid var(--rule);
+}
+.line-list button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 0;
+  text-align: left;
+}
+.ll-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ll-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ll-star {
+  color: #c98a00;
+  fill: #c98a00;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.ll-meta {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.seg.dirs button {
+  display: grid;
+  gap: 1px;
+  justify-items: start;
+  min-height: 62px;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: normal;
+}
+.seg.dirs strong {
+  font-size: 13.5px;
+}
+.seg-to {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.3;
+  width: 100%;
+}
+.seg-n {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.dir-note {
+  margin: 8px 0 0;
+}
+.journey {
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background-color 140ms ease;
+}
+.journey.picked {
+  background: var(--raised);
+  margin: 0 -10px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.dir-arrow {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--route);
+}
+.rich-chart {
+  margin-top: 20px;
+}
+.rich-chart .rchart .bar {
+  fill: var(--route);
+}
+.rich-chart .rchart .grid {
+  stroke: var(--rule);
+}
+.rich-chart .rchart .tick {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+/* --- kompüter versiyası --- */
+.desk .d-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.desk .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+.d-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  padding: 4px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: var(--raised);
+}
+.d-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.d-tabs button[aria-current='page'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.desk .search-bar kbd {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+}
+.desk .fab-col {
+  transition: right 200ms var(--ease-out);
+}
+.desk.with-panel .fab-col {
+  right: 344px;
+}
+.desk.with-panel .leaflet-bottom.leaflet-right {
+  right: 332px;
+}
+.net-panel {
+  position: absolute;
+  z-index: 1000;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: 316px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 18px 18px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 8px 30px rgba(15, 20, 25, 0.14); /* taste-skill-ignore: xəritə üzərində üzən panel */
+  font-size: 14px;
+}
+.np-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.np-head h2 {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+}
+.np-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+.np-line {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.np-line strong {
+  color: var(--text);
+}
+.np-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.np-bar i {
+  display: block;
+  flex-grow: 0;
+  flex-shrink: 1;
+  transition: flex-basis 400ms var(--ease-out);
+}
+.np-bar .b1,
+.np-legend .d1::before {
+  background: var(--lvl1-mark);
+}
+.np-bar .b2,
+.np-legend .d2::before {
+  background: var(--lvl2-mark);
+}
+.np-bar .b3,
+.np-legend .d3::before {
+  background: var(--lvl3-mark);
+}
+.np-bar .b0,
+.np-legend .d0::before {
+  background: var(--control);
+}
+.np-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 14px;
+  font-size: 13px;
+}
+.np-legend div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.np-legend dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.np-legend dt::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.np-legend dd {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.net-panel h3 {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.np-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 3px 6px;
+  margin: 0 -6px;
+  border-radius: 8px;
+  color: var(--text);
+}
+.np-n {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.np-n.push {
+  margin-right: auto;
+}
+.np-list svg:last-child {
+  margin-left: auto;
+  color: var(--muted);
+}
+.net-panel .source {
+  margin-top: 10px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .np-list button:hover,
+  .line-list button:hover,
+  .stop-list button:hover,
+  .result-list button:hover {
+    background: var(--raised);
+  }
+  .line-list button,
+  .stop-list button,
+  .result-list button {
+    border-radius: 8px;
+  }
+  .journey:not(.picked):hover {
+    background: var(--raised);
+  }
+  .d-tabs button:not([aria-current='page']):hover {
+    color: var(--text);
+  }
+  .np-close:hover {
+    background: var(--raised);
+    color: var(--text);
+  }
 }

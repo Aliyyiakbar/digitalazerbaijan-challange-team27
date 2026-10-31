@@ -1,7 +1,7 @@
 // Dayanacaq: növbəti avtobuslar. Hər sətir: xətt, istiqamət, sıxlıq — sağda böyük ETA.
 // Toxunanda: sıxlığın izahı və bir toxunuşla bildiriş.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Star } from 'lucide-react';
 import { api, sendReport, type Arrival, type Arrivals, type Network } from '../api';
 import { CrowdGlyph, RouteBadge } from '../components/Crowd';
 import { BADGE_TEXT, fmtEta, LEVEL_TEXT } from '../lib/format';
@@ -80,7 +80,7 @@ function VerifyPrompt({ a, onClose }: { a: Arrival; onClose: () => void }) {
   );
 }
 
-export function StopView({ net, stopId, pos, simple, onBack, onRoute }: { net: Network; stopId: string; pos: Pos | null; simple: boolean; onBack: () => void; onRoute: (id: string) => void }) {
+export function StopView({ net, stopId, pos, simple, starred, onStar, onBack, onRoute, onHoverRoute }: { net: Network; stopId: string; pos: Pos | null; simple: boolean; starred?: boolean; onStar?: () => void; onBack: () => void; onRoute: (id: string) => void; onHoverRoute?: (id: string | null) => void }) {
   const { data, error } = useArrivals(stopId);
   const [open, setOpen] = useState<string | null>(null);
   const [asked, setAsked] = useState<Set<string>>(() => new Set(JSON.parse(sessionStorage.getItem('stb.asked') ?? '[]')));
@@ -99,17 +99,22 @@ export function StopView({ net, stopId, pos, simple, onBack, onRoute }: { net: N
         <button type="button" className="back" onClick={onBack} aria-label="Geri">
           <ArrowLeft size={20} aria-hidden />
         </button>
-        <div>
+        <div className="view-title">
           <h1 id="stop-title">{stop.name}</h1>
           <p className="sub">
             {stop.routes.length} xətt
             {pos && ` · ${fmtDist(distM(pos, stop))} uzaqda`}
           </p>
         </div>
+        {onStar && (
+          <button type="button" className={`star ${starred ? 'on' : ''}`} onClick={onStar} aria-pressed={!!starred} aria-label={starred ? 'Seçilmişlərdən çıxar' : 'Seçilmişlərə əlavə et'}>
+            <Star size={20} aria-hidden />
+          </button>
+        )}
       </header>
-      <div className="chips" aria-label="Bu dayanacaqdan keçən xətlər">
+      <div className="chips" aria-label="Bu dayanacaqdan keçən xətlər" onMouseLeave={() => onHoverRoute?.(null)}>
         {stop.routes.map((r) => (
-          <button key={r} type="button" className="chip-btn" onClick={() => onRoute(r)} aria-label={`${r} xəttini aç`}>
+          <button key={r} type="button" className="chip-btn" onClick={() => onRoute(r)} onMouseEnter={() => onHoverRoute?.(r)} aria-label={`${r} xəttini aç`}>
             <RouteBadge id={r} color={color.get(r) ?? '#333'} size="sm" />
           </button>
         ))}

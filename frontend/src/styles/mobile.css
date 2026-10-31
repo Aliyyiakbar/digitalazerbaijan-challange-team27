@@ -1,0 +1,205 @@
+/* /mobile: quraşdırılmış tətbiq kimi. Emil mobile-native qaydaları: 100dvh, təhlükəsiz zonalar,
+   16px sahələr, basma cavabı :active-də, hover yalnız siçan üçün. Impeccable adapt: baş barmaq zonası,
+   aşağı naviqasiya, bir ekranda bir iş. */
+.mobile-app {
+  --tab-h: 56px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) calc(var(--tab-h) + var(--safe-bottom));
+  overflow: hidden;
+  font-size: max(var(--fs), 15px);
+}
+.m-stage {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+.m-top {
+  position: absolute;
+  z-index: 1000;
+  top: calc(var(--safe-top) + 10px);
+  left: 12px;
+  right: 12px;
+}
+.m-top .search-bar {
+  height: 48px;
+}
+.m-locate {
+  position: absolute;
+  z-index: 999;
+  right: 12px;
+  transition:
+    bottom 420ms var(--ease-drawer),
+    transform 120ms var(--ease-out);
+}
+
+/* --- alt panel --- */
+.m-sheet {
+  position: absolute;
+  z-index: 1000;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -6px 24px rgba(15, 20, 25, 0.12); /* taste-skill-ignore: xəritə üzərində üzən panel */
+  transition: transform 420ms var(--ease-drawer);
+  will-change: transform;
+}
+.m-sheet.dragging {
+  transition: none;
+}
+.m-grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: 28px;
+  touch-action: none; /* sürükləmə bütün oxları özü idarə edir */
+  cursor: grab;
+}
+.m-grip-btn {
+  position: relative;
+  width: 72px;
+  height: 28px;
+}
+.m-grip-btn::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 11px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--control);
+}
+.m-sheet-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 16px 20px;
+  transition: height 420ms var(--ease-drawer);
+}
+.m-sheet.dragging .m-sheet-body {
+  transition: none;
+}
+.m-sheet main {
+  outline: none;
+}
+
+/* --- tam ekran səhifələr --- */
+.m-page {
+  position: absolute;
+  z-index: 1001;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: calc(var(--safe-top) + 12px) 16px 24px;
+  background: var(--surface);
+  outline: none;
+}
+.search-bar.flat {
+  box-shadow: none;
+  background: var(--raised);
+  margin-bottom: 16px;
+}
+
+/* --- aşağı bölmələr --- */
+.m-tabs {
+  position: relative;
+  z-index: 1002;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-bottom: var(--safe-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.m-tabs button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  height: var(--tab-h);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  transition: transform 120ms var(--ease-out);
+}
+.m-tabs button[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.m-tabs button:active {
+  transform: scale(0.94);
+}
+
+/* --- parametrlər --- */
+.m-settings {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+}
+.m-settings label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.m-settings label span {
+  font-weight: 500;
+}
+.m-settings label small {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 13px;
+}
+.m-settings input[type='checkbox'] {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+.m-settings .btn-dark {
+  margin-top: 12px;
+}
+.m-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* --- üfüqi vəziyyət: panel yanda, xəritə üçün yer qalsın --- */
+@media (orientation: landscape) and (max-height: 500px) {
+  .m-sheet {
+    right: auto;
+    width: min(420px, 55vw);
+    left: env(safe-area-inset-left, 0px);
+  }
+  .m-tabs {
+    --tab-h: 46px;
+  }
+  .m-tabs button {
+    grid-auto-flow: column;
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-sheet,
+  .m-sheet-body,
+  .m-locate {
+    transition: none;
+  }
+}

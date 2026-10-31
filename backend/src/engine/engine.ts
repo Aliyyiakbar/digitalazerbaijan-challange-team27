@@ -119,6 +119,7 @@ export class Engine extends EventEmitter {
   private busViews = new Map<string, BusView>();
   private stopCrowd = new Map<string, CrowdEstimate>();
   private lastSnapshot = 0;
+  private lastPublish = 0;
   private lastForecastAlert = 0;
   private timer: NodeJS.Timeout | null = null;
   private busCounter = new Map<string, number>();
@@ -669,7 +670,13 @@ export class Engine extends EventEmitter {
       this.lastSnapshot = now;
       await this.snapshot(now);
     }
-    await this.store.publish({ type: 'state', data: this.liveState() });
+    // 500+ avtobusda mesaj böyükdür, telefonda hər saniyə JSON açmaq batareya yeyir: yayım seyrəkdir
+    const wall = Date.now();
+    if (wall - this.lastPublish >= 2000) {
+      this.lastPublish = wall;
+      const live = this.liveState();
+      await this.store.publish({ type: 'state', data: { ...live, buses: live.buses.map((b) => ({ ...b, lat: +b.lat.toFixed(5), lon: +b.lon.toFixed(5), crowd: { ...b.crowd, reasons: [] } })) } });
+    }
     for (const a of newAlerts) await this.store.publish({ type: 'alert', data: a });
   }
 

@@ -19,6 +19,11 @@ export function fmtEta(s: number): string {
   return `${m} dəq`;
 }
 
+/** Min ayırıcısı nöqtədir: 18.398. Brauzerdə "az" dili olmaya bilər, ona görə Intl-ə güvənilmir. */
+export function fmtInt(n: number): string {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 export function fmtMin(s: number): string {
   return `${Math.max(1, Math.round(s / 60))} dəq`;
 }

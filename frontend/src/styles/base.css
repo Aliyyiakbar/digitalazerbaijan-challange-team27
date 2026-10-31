@@ -339,3 +339,32 @@ table {
     scroll-behavior: auto !important;
   }
 }
+
+/* Telefon: "bu saytdır" təəssüratı yaradan brauzer davranışları (Emil, mobile-native) */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+.passenger {
+  overscroll-behavior: none;
+}
+button,
+a,
+[role='button'],
+label {
+  touch-action: manipulation;
+}
+button,
+[role='button'],
+[role='radio'] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
