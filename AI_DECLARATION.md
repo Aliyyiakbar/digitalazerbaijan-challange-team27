@@ -1,0 +1,100 @@
+# AI istifadəsi haqqında bəyannamə (AI Declaration)
+
+**Layihə:** Smart Transit Baku — Crowdsourcing Engine
+**Komanda:** [Üzv 1] · [Üzv 2] · [Üzv 3]
+**Tarix:** 31 oktyabr 2026
+
+Bu sənəd layihədə süni intellektin harada, necə və hansı sorğularla istifadə olunduğunu açıq şəkildə bəyan edir.
+
+---
+
+## 1. İstifadə olunan alətlər
+
+| Alət | Model | Nə üçün |
+|---|---|---|
+| **Claude Code** (Anthropic, CLI agent) | Claude Opus 5.5 | Araşdırma, arxitektura, bütün mənbə kodu, testlər, Docker faylları, sənədlər |
+| Claude Code daxilində veb axtarış və səhifə oxuma | — | AYNA/BNA vəziyyəti, metro bağlanması, ədəbiyyat (bunching, dwell time, truth discovery, GTFS-RT, WCAG 2.2, crowding multipliers) |
+| Dizayn təlimat paketləri (Claude Code "skills") | — | UI qərarları üçün yoxlama siyahıları və qaydalar: [`leonxlnx/taste-skill`](https://github.com/leonxlnx/taste-skill) (app-screen qaydaları, `draw.mjs` ilə üslub seçimi, `lint.mjs`), [`pbakaus/impeccable`](https://github.com/pbakaus/impeccable) (Operate mode, craft floor), [`emilkowalski/skills`](https://github.com/emilkowalski/skills) (animasiya və hiss qaydaları) |
+| Cursor / Copilot / ChatGPT | — | **İstifadə olunmayıb** *(komanda üzvləri başqa alət işlədibsə, bu sətri düzəldin)* |
+
+---
+
+## 2. Proses: insan nə istədi, AI nə etdi
+
+Bütün iş bir Claude Code sessiyasında aparılıb. Komanda üzvünün əsas sorğuları (Azərbaycan dilində, qısaldılmış):
+
+1. **Tapşırığın mətni**: sərnişin modulu (ETA, sıxlıq bildirişi), operator modulu (sıxlıq xəritəsi, "10 dəqiqə yüksək → əlavə avtobus ehtiyatı" tövsiyəsi), təhvil materialları. Əlavə tələb: *"məsələni başa düş, araşdırma elə, nəsə yaratmazdan əvvəl"*.
+2. *"Daha dəqiq araşdır, BNA nədir, AYNA baxır o temaya, vəziyyətə"*: AI əvvəlcə köhnə BNA məlumatına istinad etmişdi. Bu sorğudan sonra BNA-nın 2023-də ləğv edildiyi, AYNA-nın səlahiyyətləri, 2026-cı il metro bağlanması və M1–M6 xətləri araşdırıldı.
+3. *"Bizdən soruş tech stack-ı"*: texnologiyaları **komanda seçdi**: Node.js + Express + TypeScript, React (Vite) + Leaflet, Redis + PostgreSQL, WebSocket. Sənədlər Azərbaycan dilində, `.md/.txt`. Zip arxiv, lokal git.
+4. *"Docker-i bu kompüterə quraşdır və işlət"* və *"başlama nəsə yazmağa qətiyyən, ancaq plan"*: AI əvvəlcə yalnız plan təqdim etdi.
+5. Tapşırıqdakı qaydanın dəqiq mətni təkrarlandı. *"Nə qədər crazy bonus ideyaların var yaz"*: AI 28 ideya təklif etdi.
+6. **Komanda bonusları seçdi** (1, 3, 6, 7, 9, 10, 11, 15, 16, 17, 18, 19, 20, 26) və tapşırdı: *"edge case-lər ola bilər ki, avtobus boşdur, camaat mırt yüksək sıxlıq qeyd edir, belə şeyləri nəzərdə tut… research elə, planla"*.
+7. *"Hamısını yığa bilərsən"* + skill-lərin istifadəsi (taste-skill, emilkowalski/skills, impeccable).
+
+**AI-nin etdiyi:**
+- mövzu araşdırması və mənbələr;
+- qaydanın şərhi və kənar halların dizaynı;
+- bütün backend kodu: engine, API, simulyator, GTFS;
+- bütün frontend kodu;
+- 52 avtomatik test;
+- Docker faylları, README, texniki sənəd və bu bəyannamə.
+
+**İnsanın etdiyi:**
+- tapşırığın qoyuluşu;
+- texnologiyaların seçimi;
+- bonus funksiyaların seçimi;
+- kənar hallara diqqət ("boş avtobusa yüksək deyirlər");
+- istiqamətin düzəldilməsi (BNA → AYNA);
+- qəbul və yoxlama.
+
+---
+
+## 3. Arxitektura qərarlarında AI-nin rolu
+
+AI aşağıdakıları **təklif etdi**, komanda planı təsdiqlədi:
+- 10 dəqiqəlik qaydanın şərhi: *fasiləsiz*, ≥5 bildiriş, ≥3 cihaz, 60 saniyəlik dözümlülük.
+- Sıxlıq balı ilə **etibar balının** ayrılması və fiziki yoxlamalar: toplanmanın arxa avtobusu, dayanma müddəti, proqnoz.
+- Bildirişlərin "avtobusdayam / dayanacaqdayam" kontekstinə bölünməsi.
+- Xətlərin "dövrə" modeli. Redis (isti məlumat) və PostgreSQL (daimi məlumat) bölgüsü.
+- Lokal mühitdə PostgreSQL işləmədiyi üçün **PGlite** (WASM Postgres) fallback-i.
+- İstifadə olunan elmi üsullar ədəbiyyata əsaslanır və [docs/TEXNIKI_IZAH.md](docs/TEXNIKI_IZAH.md#mənbələr)-də mənbə ilə göstərilib: holding, truth discovery, dwell time, Wardman & Whelan, RAPTOR, GTFS-RT.
+
+---
+
+## 4. Testlərdə AI
+
+- Testləri AI yazıb və işlədib: backend 45 (unit + API, PGlite yaddaşda), frontend 7 (jsdom smoke).
+- Testlər real səhvlər tapıb və bunlar düzəldilib:
+  - qaydanın "qısa eniş" məntiqi seyrək yoxlamalarda sayğacı səhv sıfırlayırdı;
+  - tıxac təsnifatında sabit dayanma norması bütün xətləri "tələbat" kimi göstərirdi, adaptiv median ilə əvəz olundu;
+  - son dayanacaqda istiqamət yanlış yazılırdı.
+- Uçdan-uca yoxlama işləyən sistemdə HTTP sorğuları ilə aparılıb:
+  - pik → tövsiyə → göndər → yeni avtobus;
+  - saxta bildiriş;
+  - bot;
+  - tıxac;
+  - ayrıca proses simulyator rejimi.
+
+---
+
+## 5. AI-nin edə bilmədiyi / yoxlamadığı (dürüst qeyd)
+
+| Nə | Səbəb | Komanda nə etməlidir |
+|---|---|---|
+| Docker Compose işə salınmayıb | İş mühitində (sandbox) `brew install` `/opt/homebrew`-a yaza bilmədi | Öz kompüterinizdə `docker compose up --build` işə salın və yoxlayın |
+| Real PostgreSQL ilə test | Sandbox shared memory (`shmget`) bloklayır. Eyni SQL PGlite-da test olunub | Docker-də `postgres` servisi ilə bir dəfə yoxlayın |
+| Brauzerdə vizual yoxlama (ekran görüntüsü) | Sandbox Chrome-un işə düşməsini blokladı (mach port) | UI-ı 1440 px və telefon ölçüsündə özünüz açıb baxın. Lint (`taste-skill`) 0 FAIL, jsdom smoke testləri keçir |
+| Git repo | Sandbox `.git/config` yazmağa icazə vermədi | `git init && git add . && git commit` əmrini özünüz icra edin |
+| Adi xətlərin (6, 17, 61, 88) dayanacaq siyahısı | Açıq mənbə tapılmadı | Təqdimatda "təxmini" olduğunu deyin və ya AYNA MaaS-dan dəqiqləşdirin |
+
+---
+
+## 6. Məsuliyyət
+
+Kodun və sənədlərin hamısı AI ilə yaradılıb. Komanda onu təqdim etməzdən əvvəl:
+- [ ] kodu oxuyub əsas axını izah edə bilir (engine dövrü, 10 dəqiqəlik qayda, etibar balı);
+- [ ] sistemi öz kompüterində işə salıb, demo ssenarisini keçib;
+- [ ] mənbələri yoxlayıb;
+- [ ] simulyasiya və sintetik məlumatın **real olmadığını** münsiflərə açıq deyir.
+
+Bütün kod komandanın məsuliyyətindədir.

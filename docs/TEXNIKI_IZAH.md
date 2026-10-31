@@ -1,0 +1,297 @@
+# Smart Transit Baku — Texniki izah sənədi
+
+**Mövzu:** Ağıllı mobillik və nəqliyyat. Bakı ictimai nəqliyyatı üçün real vaxt marşrut və yük analitikası sistemi
+**Məhsul:** Smart Transit Crowdsourcing Engine (funksional prototip)
+**Komanda:** [Üzv 1] · [Üzv 2] · [Üzv 3]
+**Tarix:** 31 oktyabr 2026
+
+---
+
+## 1. Problem
+
+### 1.1 Vəziyyət
+
+Bakının şəhər avtobus sistemini **AYNA** (Azərbaycan Yerüstü Nəqliyyat Agentliyi) tənzimləyir. Əvvəl bu funksiya Bakı Nəqliyyat Agentliyinə (BNA) məxsus idi. 19 aprel 2023-cü il fərmanı ilə BNA ləğv olundu və əmlakı AYNA-ya verildi [1][2].
+
+| Göstərici | Dəyər | Mənbə |
+|---|---|---|
+| Şəhərdə avtobus sayı | 2 530 (2022-də 1 780) | [3] |
+| Avtobus zolaqları | ~117 km, 43 küçə | [3] |
+| Şikayət kanalı | 141 çağrı mərkəzi, sosial şəbəkələr | [3] |
+| Sərnişin tətbiqi | AYNA MaaS: canlı mövqe, ETA, səfər planı (yeniləmə 09.04.2026) | [4] |
+
+### 1.2 2026-cı ilin konkret hadisəsi
+
+4 avqust 2026-dan metroda "28 May"–"Nizami" hissəsində hərəkət dayandırılıb [5]. Əvəzində 6 ekspres xətt (M1–M6) açılıb və 20 adi xəttə avtobus əlavə edilib.
+
+21 sentyabr 2026-da sərnişinlər M6 və 17 nömrəli xətlər haqqında belə şikayət edirdi [6]: *"Uzun müddət gözləyirik, avtobus gələndə də dolu olur. M6 belə yüklənirsə, niyə avtobus artırılmır?"* AYNA səbəbi tıxacla izah edir.
+
+### 1.3 Boşluq
+
+| Kimin problemi | Nəyi bilmir |
+|---|---|
+| Sərnişin | Gələn avtobusun dolu olub-olmadığını. AYNA MaaS-da doluluq göstəricisi yoxdur [4]. |
+| Dispetçer | Hansı xəttin **indi** dolu, hansının boş getdiyini. Məlumat şikayətlərdən gec gəlir. |
+| Hər ikisi | Gecikmənin səbəbini: tıxac, yoxsa avtobus çatışmazlığı. Bu iki səbəbin həlli fərqlidir. |
+
+**Prototipin cavabı:** sərnişinləri sensora çevirmək (crowdsourcing), bu siqnalı GPS ilə çarpaz yoxlamaq və dispetçerə sübutlu, avtomatik tövsiyə vermək.
+
+---
+
+## 2. Tələblər və onların qarşılanması
+
+| Tapşırıq tələbi | Necə qarşılanıb |
+|---|---|
+| Xətt və ya dayanacaq seçildikdə real vaxt avtobus yerləşməsi və ETA | `GET /api/stops/{id}/arrivals`, `GET /api/routes/{id}/live`, WebSocket `state`. PWA-da xəritə və gəlişlər siyahısı. |
+| Sərnişin sıxlığı bildirir (aşağı / orta / yüksək) | `POST /api/reports`. Bir toxunuşla 3 böyük düymə. Kontekst: "avtobusdayam" və ya "dayanacaqdayam". |
+| Bildirişlər və GPS əsasında xətlər üzrə sıxlıq xəritəsi və siyahısı | Operator panelində xətlər sıxlığa görə rənglənən xəritə və cədvəl. Hər saniyə yenilənir. |
+| 10 dəqiqə ərzində yüksək olduqda avtomatik "əlavə avtobus ehtiyatı ayrılmalıdır" bildirişi | `engine/rules.ts`. Xətt fasiləsiz 10 dəqiqə yüksək qalanda xəbərdarlıq avtomatik yaranır (səs siqnalı və "Niyə?" izahı ilə). Operator bir kliklə ehtiyat avtobusu göndərir. |
+
+**"10 dəqiqə ərzində yüksək" ifadəsinin şərhi:** xətt **fasiləsiz 10 dəqiqə** "yüksək" vəziyyətdə qalmalıdır. "Yüksək" vəziyyətin şərtləri:
+- son 10 dəqiqənin çəkili balı ≥ 2.4;
+- pəncərədə ≥ 5 bildiriş;
+- ≥ 3 fərqli cihaz.
+
+60 saniyədən qısa enişlər fasilə sayılmır. Tək bir anlıq sıçrayış və ya tək bir istifadəçi tövsiyə yarada bilməz. Bu davranış testlə təsdiqlənib: 9:59-da tövsiyə yoxdur, 10:00-da var.
+
+---
+
+## 3. Həllin icmalı
+
+```
+ Sərnişin PWA ──bildiriş──►┐                         ┌──► Dispetçer paneli
+                           │   Backend (Node/TS)     │      (xəritə, cədvəl, xəbərdarlıqlar,
+ Avtobus GPS ──ping/1 san─►├─► API ─► Engine ─► WS ──┤       vaxt maşını, demo)
+ (simulyator)              │          │   ▲          │
+                           │     Redis │   │ Postgres └──► GTFS / GTFS-RT (açıq standart)
+                           └──── (isti) ┘   └ (daimi)
+```
+
+Engine-in hər dövrü (1 saniyə):
+1. GPS-dən avtobusların xətt boyunca mövqeyi, sürəti və dayanma müddəti hesablanır.
+2. Bot və saxta bildiriş yoxlanılır. Şübhəli bildirişlər karantinə düşür.
+3. İntervallar və toplanma (bus bunching) analiz edilir.
+4. Səbəb təsnif edilir: tıxac, tələbat və ya hər ikisi.
+5. Avtobus və xətt üzrə sıxlıq + etibar balı hesablanır.
+6. Proqnoz (15 və 30 dəqiqə) və domino riski (+5/+10/+15 dəqiqə) hesablanır.
+7. Qaydalar yoxlanılır və xəbərdarlıqlar yaradılır: ehtiyat avtobus, proqnoz, toplanma, tıxac, bot.
+8. Nəticələr Redis pub/sub vasitəsilə WebSocket-ə gedir. Hər 30 saniyədə bir snapshot PostgreSQL-ə yazılır.
+
+---
+
+## 4. Arxitektura və texnologiya seçimləri
+
+| Qat | Texnologiya | Niyə |
+|---|---|---|
+| Backend | Node.js 22, Express 5, TypeScript (strict) | Bir dil (TS) həm backend-də, həm frontend-də. WebSocket üçün təbii seçim. Tiplər engine-in mürəkkəb strukturlarında səhvləri tutur. |
+| Yoxlama | zod | Hər giriş sxemlə yoxlanılır. Xətalar Azərbaycan dilindədir. |
+| Real vaxt | `ws` + Redis pub/sub | Bir neçə backend instansı olsa da, hər müştəri eyni hadisələri alır. |
+| İsti məlumat | Redis 7 | `HASH bus:pos` (son mövqelər), `ZSET win:{route}` (10 dəqiqəlik sürüşən pəncərə, score = vaxt), `rl:*` (spam limiti, TTL). Bütün əməliyyatlar O(log n). |
+| Daimi məlumat | PostgreSQL 16 (Docker), PGlite (lokal) | Bildirişlərin auditi, xəbərdarlıqların tarixçəsi, snapshot-lar (vaxt maşını və proqnoz). PGlite eyni SQL-i WASM-da işlədir: lokal demo üçün quraşdırma tələb olunmur. |
+| Frontend | React 19, Vite, react-leaflet, vite-plugin-pwa | PWA: telefona quraşdırılır, offline açılır, bildirişlər növbəyə yığılır. Leaflet yüngüldür, OSM ilə işləyir. |
+| Xəritə | OpenStreetMap + CARTO altlığı | Açıq və pulsuzdur. Xətt həndəsəsi OSRM ilə real yollar üzrə çəkilib. |
+| Açıq standart | GTFS + GTFS-Realtime (protobuf) | Sıxlıq məlumatını AYNA MaaS, Google Maps və digər tətbiqlərə standart formatda ötürməyə imkan verir. |
+| Konteyner | Docker Compose: 5 servis | `postgres`, `redis`, `backend`, `simulator`, `frontend` (nginx). |
+
+**Məlumat modeli:**
+- **PostgreSQL:** `stops`, `routes`, `route_stops`, `buses`, `devices`, `crowd_reports`, `alerts`, `snapshots`, `stop_dwell_events`.
+- **Məxfilik:** bildirişin koordinatı **saxlanılmır**, yalnız avtobusa və ya dayanacağa olan məsafə saxlanılır. IP ünvanı duzlu SHA-256 ilə heşlənir.
+
+**Xətlərin "dövrə" modeli:** hər xətt gediş + qayıdış həndəsəsindən ibarət bir polilayndır. Avtobusun vəziyyəti dövrə boyunca məsafə ilə ifadə olunur (metr). Bu, ETA, interval, toplanma və domino hesablarını bir ölçüyə gətirir. Gediş və qayıdış eyni küçədən keçəndə istiqamət qarışmasın deyə proyeksiya əvvəlki mövqenin ətrafındakı pəncərədə aparılır.
+
+---
+
+## 5. Alqoritmlər
+
+### 5.1 Sıxlıq və etibar (crowdsourcing-in əsas problemi)
+
+Crowdsourcing-in zəif tərəfi məlumatın keyfiyyətidir. Ona görə sistem iki ayrı rəqəm hesablayır: **sıxlıq balı** və **etibar balı**.
+
+**Sıxlıq balı** çəkili orta ilə hesablanır:
+
+    bal = Σ wᵢ·səviyyəᵢ / Σ wᵢ
+    wᵢ  = cihaz_etibarı × coğrafi_çəki × 0.5^(yaş / 5 dəq)
+
+**Etibar balı** (0..1):
+
+    0.30·həcm + 0.25·cihaz_müxtəlifliyi + 0.25·razılaşma + 0.20·coğrafiya
+
+Bundan sonra fiziki yoxlamalar tətbiq olunur:
+
+| Kənar hal | Aşkarlanma | Reaksiya |
+|---|---|---|
+| Dayanacaq doludur, avtobus boşdur, insanlar "yüksək" basır | Bildirişin **konteksti** var: "avtobusdayam" və ya "dayanacaqdayam" | Dayanacaq sıxlığı ayrıca hesablanır və avtobusun doluluğuna qarışmır |
+| Toplanmış cütün **arxa** avtobusu üçün "yüksək" | Öndəki avtobusla aradakı interval ideal intervalın <30%-idir. Real həyatda arxadakı avtobus adətən boş gedir [7] | Etibar ×0.5. Xətt üzrə "yüksək" bildirişlərin >50%-i arxa avtobuslara aiddirsə, əlavə olaraq ×0.6 |
+| "Yüksək" deyilir, amma avtobus dayanacaqlarda qısa dayanır və sürəti normaldır | Dayanma müddəti sərnişin axınının əsas göstəricisidir [8] | Etibar ×0.75 |
+| Dayanma uzanıb | GPS dayanma müddətini ölçür | Etibar artır ("GPS təsdiqləyir") |
+| Gecə 23:30-da "yüksək" | Proqnoz modeli aşağı sıxlıq gözləyir | Etibar ×0.8. Bildiriş silinmir |
+| Bildirişlər bir-birinə ziddir | Səviyyələrin çəkili standart sapması | "Ziddiyyətli" səbəbi göstərilir |
+| İnsan evdən oturub bildiriş göndərir | Avtobusa olan məsafə | Uzaqlıqdan asılı olaraq çəki ×0.1–0.6 |
+| Bir nəfər dəfələrlə basır | Rate-limit və etibar balı | Bir hədəf üçün 2 dəqiqədə 1 bildiriş, 10 dəqiqədə ümumi 20 bildiriş |
+| Bot hücumu | Bax 5.2 | Karantin |
+
+**Nişanlar:** etibar ≥0.65 → **Təsdiqlənib**, ≥0.35 → **Yoxlanılmalı**, qalanı → **Şübhəli**. Etibar aşağı olanda sistem həmin avtobusa yaxın olan sərnişinə **aktiv təsdiq sualı** verir: "Doğrudurmu? Bəli / Xeyr".
+
+**Cihaz reputasiyası** "truth discovery" ideyasına əsaslanır [9]: mənbənin etibarı onun iddialarının konsensusla nə qədər üst-üstə düşməsindən asılıdır.
+- konsensusla uyğun gələn bildiriş +0.05;
+- ziddə düşən bildiriş −0.10;
+- hədlər 0.1..1.0;
+- yeni cihaz ilk 5 dəqiqədə ≤0.3 sayılır.
+
+### 5.2 Bot və saxta bildiriş hücumu
+
+Xətt üzrə son 5 dəqiqəyə baxılır. Siqnallar:
+1. Dəqiqəlik sürət adi səviyyənin 5 qatını keçir. Adi səviyyə EWMA ilə hesablanır və yalnız hücum olmayanda yenilənir.
+2. Bir IP-dən 4+ fərqli cihaz bildiriş göndərir.
+3. Bildirişlər arası intervalların variasiya əmsalı <0.15-dir, yəni ritm maşın kimidir.
+4. Bildirişlərin >80%-i koordinatsızdır.
+5. Bildirişlərin >70%-i son 2 dəqiqədə yaranmış cihazlardandır.
+
+≥2 siqnal görünsə (onlardan biri sürət sıçrayışı və ya IP olmalıdır), şübhəli bildirişlər karantinə düşür, cihazların etibarı −0.2 azalır və operatora xəbərdarlıq gedir. Cihaz identifikatoru serverin HMAC ilə imzaladığı anonim tokendir, ona görə saxta ID uydurmaq olmur.
+
+### 5.3 Tıxac, yoxsa avtobus çatışmır?
+
+Dayanacaqlar arası **hərəkət sürəti** əsasən tıxacdan asılıdır. **Dayanma müddəti** isə minən-düşən sərnişin sayından asılıdır [8][10]. Sistem ikisini ayrıca ölçür:
+
+| | Sürət normaldır | Sürət < sərbəst axının 60%-i |
+|---|---|---|
+| Dayanma > şəbəkə medianının 1.5 qatı və ya sıxlıq yüksəkdir | **Tələbat**: avtobus əlavə edin | **Qarışıq** |
+| Dayanma normaldır | Normal | **Tıxac**: əlavə avtobus kömək etməz |
+
+Dayanma bazası adaptivdir: bütün şəbəkənin median dayanma müddəti götürülür. Sabit norma əvəzinə bu yanaşma pik saatda hamının birlikdə yavaşlamasını "anomaliya" kimi qəbul etmir. Nəticə GTFS-RT `congestion_level` sahəsinə də yazılır: RUNNING_SMOOTHLY … SEVERE_CONGESTION.
+
+### 5.4 Toplanma (bus bunching)
+
+Ardıcıl avtobuslar arasındakı vaxt intervalı ideal intervalla müqayisə olunur. İdeal interval = dövrə vaxtı / avtobus sayı.
+- <30% → toplanma;
+- >180% → boşluq.
+
+Tövsiyə interval əsaslı **saxlama** (holding) üsuluna əsaslanır [11]: arxadakı avtobus növbəti dayanacaqda (arxa interval − ön interval)/2 qədər saxlanılır. Toplanma ≥3 dəqiqə davam etdikdən sonra xəbərdarlıq yaranır.
+
+### 5.5 ETA
+
+    ETA = qalan_məsafə / v + aralıq_dayanacaqlar × orta_dayanma
+
+Burada `v` avtobusun hamarlanmış sürəti ilə xəttin son 5 dəqiqəlik orta hərəkət sürətinin qarışığıdır. Avtobus hazırda dayanırsa, yalnız xəttin sürəti götürülür. GTFS-RT TripUpdates-də `uncertainty` = 60 san.
+
+### 5.6 Proqnoz
+
+Ədəbiyyatda ən güclü əlamətlər günün saatı, gün növü və tarixi doluluqdur. Bu sahədə əsas modellər gradient boosting-dir [12][13]. Prototipdə izah oluna bilən iki qatlı model istifadə olunur:
+1. **Baza:** xətt × 15 dəqiqəlik aralıq × gün növü (iş günü / həftəsonu) üzrə ortalama, qonşu aralıqlarla hamarlanmış.
+2. **Düzəliş:** müşahidə ilə baza arasındakı fərqin EWMA-sı (α = 0.25). Proqnoz üfüqü uzandıqca bu düzəlişin təsiri `exp(−h/45 dəq)` qaydası ilə sönür.
+
+Model 14 günlük **sintetik** tarixçədə öyrədilir, son gün yoxlama üçün ayrılır. Ölçülən MAE ≈ 0.10 baldır, amma bu sintetik məlumatdır. Real dəqiqlik AYNA/BakıKart məlumatı ilə ölçülməlidir.
+
+**İstifadə yerləri:**
+- 30 dəqiqə sonra ≥2.4 gözlənilirsə qabaqlayıcı xəbərdarlıq;
+- etibar balında yoxlama;
+- domino.
+
+### 5.7 Domino (sıxlıq dalğası)
+
+Dolu avtobus irəlidəki dayanacaqlarda adam götürə bilmir. Hər dayanacaq üçün +5/+10/+15 dəqiqədə "yeri olan" (səviyyəsi < yüksək) avtobusun gəlməmə riski hesablanır:
+
+    risk = (planlı intervaldan artıq gözləmə) / (2 × interval) + 0.25 × keçən_dolu_avtobus_sayı
+
+Ehtiyat avtobus tövsiyəsində **buraxılış dayanacağı** riskin ən yüksək olduğu yerdir.
+
+### 5.8 "Bunu burax" və marşrut planı
+
+**"Bunu burax":** gələn avtobus doludursa və eyni xətdə ≤6 dəqiqə sonra orta və ya aşağı sıxlıqlı avtobus (və ya toplanmanın boş arxa avtobusu) gəlirsə, sərnişinə növbətini gözləmək tövsiyə olunur.
+
+**Marşrut planı:** şəbəkə kiçikdir və cədvəl intervala əsaslanır. Ona görə RAPTOR-un 2 raundluq (0 və 1 köçürmə) versiyası real ETA ilə kifayətdir [14]. **Hiss olunan vaxt** belə hesablanır:
+
+    gözləmə × 1.5 + yol × {1.0, 1.19, 2.32}[sıxlıq] + köçürmə cəzası 3 dəq
+
+Əmsallar Wardman & Whelan (2011) meta-analizindəndir: oturaraq ~1.19, ayaq üstə ~2.32 [15].
+
+---
+
+## 6. İstifadəçi interfeysi
+
+**Sərnişin (PWA)** gün işığında, telefonda istifadə üçün açıq "ledger" üslubundadır.
+- Tək rəng (#1d5fbf) yalnız növbəti avtobusun ETA-sındadır.
+- Sıxlıq yalnız rənglə yox, **sütun sayı (1/2/3) və mətnlə** kodlanır (WCAG 1.4.1).
+- Düymələr ≥ 40–72 px-dir (WCAG 2.2 hədəf ölçüsü ≥24 px).
+- `aria-live` növbəti avtobusu elan edir.
+- Xəritənin yanında həmişə siyahı var, çünki ekran oxuyucu xəritəni oxuya bilmir.
+- **Sadə rejim** (xəritəsiz, yalnız növbəti 3 avtobus), **böyük şrift**, **yüksək kontrast** və `prefers-reduced-motion` dəstəklənir.
+- Offline: interfeys cache-dən açılır, bildirişlər növbəyə yığılır.
+
+**Dispetçer paneli** uzun növbədə izlənən tünd "data terminal" üslubundadır.
+- Ekranın əsas sualı belədir: "Hansı xəttə indi avtobus lazımdır?" Ona görə ən böyük element xəbərdarlıq növbəsi və sıxlığa görə rənglənmiş xəritədir.
+- Hər tövsiyənin **"Niyə?"** bölməsi var: qayda, rəqəmlər, səbəblər, donor xətt.
+- Xətt təfərrüatında domino zolağı, toplanma cütləri, proqnoz qrafiki və avtobuslar göstərilir.
+- **Vaxt maşını** son 2 saatı geri sarır, xəbərdarlıqlar zaman zolağında işarələnir.
+
+Dizayn qərarlarında `taste-skill` (app-screen qaydaları), `impeccable` (operate mode, craft floor) və `emil-design-eng` (hərəkət) təlimatlarına əməl olunub. Bax: AI_DECLARATION.md.
+
+---
+
+## 7. Keyfiyyət və test
+
+| Səviyyə | Nə | Say |
+|---|---|---|
+| Unit | Sıxlıq, etibar və kənar hallar; qayda (9:59/10:00, qısa və uzun eniş, tək istifadəçi); toplanma; tıxac; ETA; proyeksiya; proqnoz; bot; "bunu burax"; domino | 32 |
+| API inteqrasiya | Token, validasiya, spam limiti, coğrafi çəki, dayanacaq bildirişi, gəlişlər, plan, **10 dəqiqə → tövsiyə → göndər**, ehtiyat bitəndə 409, GTFS-RT JSON/protobuf, GTFS zip, STATIC_DIR | 13 |
+| UI smoke (jsdom) | Sərnişin: gəlişlər, bildiriş, plan, xətlər, sadə rejim. Operator: panel, "Niyə?", təfərrüat, vaxt maşını, demo | 7 |
+| Əl ilə uçdan-uca | Hər iki rejim (daxili və ayrıca proses simulyator): pik → tövsiyə → göndər → yeni avtobus; saxta bildiriş; bot; tıxac | ✓ |
+
+---
+
+## 8. Təhlükəsizlik və məxfilik
+
+- Qeydiyyat yoxdur. Anonim cihaz ID-si HMAC ilə imzalanır, serverdə saxlanılan sirr olmadan saxta ID uydurmaq olmur.
+- Koordinat saxlanılmır, yalnız məsafə saxlanılır. IP duzlu heşlə saxlanılır.
+- GTFS-RT tövsiyəsinə uyğun olaraq doluluq aşağı dəqiqliklə ötürülür: 3 səviyyə, fərdi sərnişini izləmək mümkün deyil.
+- Daxili endpoint-lər (`/api/gps`, simulyator bildirişləri) `x-internal-key` başlığı ilə qorunur.
+- **Prototipdə yoxdur, production üçün lazımdır:** operator autentifikasiyası (AYNA SSO, RBAC), HTTPS, sirlərin vault-da saxlanması, audit jurnalı.
+
+---
+
+## 9. Məhdudiyyətlər
+
+1. **Məlumat simulyasiyadır.** AYNA-nın açıq GPS/AVL axını yoxdur. Sərnişin davranışı modelləşdirilib: gəliş intensivliyi günün saatına görədir, dayanma minənlərin sayına görədir, toplanma təbii şəkildə yaranır.
+2. **Adi xətlərin (6, 17, 61, 88) dayanacaq siyahısı təxminidir.** M1–M6 xətlərinin uc dayanacaqları AYNA elanındandır. Koordinatlar OpenStreetMap-dəndir.
+3. **Proqnoz sintetik tarixçə ilə öyrədilib.**
+4. Hazırlandığı mühitdə Docker və brauzer işə salına bilmədi (sandbox məhdudiyyəti). Docker faylları yazılıb, vizual yoxlama isə lint və jsdom testləri ilə əvəz olunub.
+
+---
+
+## 10. Gələcək inkişaf
+
+| İstiqamət | Təsvir |
+|---|---|
+| **AYNA MaaS inteqrasiyası** | Sıxlıq qatı və bildiriş düyməsi birbaşa AYNA MaaS-a əlavə olunur. GTFS-RT feed artıq hazırdır. |
+| **Real AVL məlumatı** | `POST /api/gps` real avtobus terminallarından qəbul edilir. Simulyator söndürülür (`SIM_MODE=off`). |
+| **BakıKart validasiyası** | Minənlərin sayı validasiyalardan məlumdur, düşənlər isə OD-matris modeli ilə proqnozlaşdırılır. Crowdsourcing ilə birlikdə hibrid model alınır: biri həcm verir, digəri yoxlama. |
+| **Avtobusdakı sayğaclar** | Qapı sayğacları, kamera və ya Wi-Fi probe sayları. Etibar balında ən ağır çəkili mənbə olacaq. |
+| **ML proqnozu** | LightGBM / LightGBMLSS: hava, tədbirlər, metro vəziyyəti, əvvəlki reysin gecikməsi kimi əlamətlər, 15 dəqiqəlik üfüq [13]. ONNX ilə Node-da işlədilir. |
+| **Avtomatik dispetçer optimallaşdırması** | Ehtiyat avtobusların xətlər arasında bölgüsü optimallaşdırma məsələsi kimi həll olunur (gözləmə vaxtının minimumu, park məhdudiyyətləri). Toplanma üçün proqnoza əsaslanan saxlama. |
+| **Dayanacaq tabloları** | `/ekran/{stop}` rejimi: e-ink tablolarda ETA və sıxlıq. |
+| **Telegram / səsli bot** | Tətbiq yükləmədən ETA almaq və bildiriş göndərmək. |
+| **Gamification** | Etibarlı sərnişinlərə BakıKart bonusu. |
+| **Miqyas** | Engine xətlərə görə şard edilir (Redis Streams / Kafka). PostgreSQL → TimescaleDB (snapshot-lar). |
+
+---
+
+## Mənbələr
+
+1. Bakı Nəqliyyat Agentliyi — Vikipediya. https://az.wikipedia.org/wiki/Bakı_Nəqliyyat_Agentliyi
+2. "Bir agentliyin tarixçəsi", Meydan TV. https://www.meydan.tv/az/article/bir-agentliyin-tarixcesi/
+3. "Bakıda sınağa çevrilən avtobus səfəri: AYNA sıxlıq... ilə bağlı nələri deyir?", 1news.az, 02.10.2026. https://1news.az/az/news/20261002150642203-Bakida-sinaga-chevrilen-avtobus-seferi-AYNA-sixliq-kondisioner-ve-davranish-qaydalari-ile-bagli-neleri-deyir
+4. "AYNA MaaS-da funksional yeniliklər tətbiq edilib", Report.az, 09.04.2026. https://report.az/infrastruktur/ayna-maas-da-funksional-yenilikler-tetbiq-edilib
+5. Metro bağlanması və M1–M6 ekspres xətləri, AZƏRTAC, 04.08.2026. https://azertag.az/xeber/4351909
+6. "Bakıda avtobus böhranı: Uzun müddət gözləyirik, gələndə də dolu olur", Oxu.az, 21.09.2026. https://oxu.az/cemiyyet/bakida-avtobus-bohrani-uzun-muddet-gozleyirik-gelende-de-dolu-olur-foto
+7. Bus bunching — Wikipedia. https://en.wikipedia.org/wiki/Bus_bunching
+8. Measuring the Determinants of Bus Dwell Time. https://www.worldtransitresearch.info/research/6803
+9. Quality of Information in Mobile Crowdsensing: Survey and Research Challenges. https://arxiv.org/pdf/1709.03583
+10. CTPS, Bus Delay Work Program. https://www.ctps.org/data/calendar/pdfs/2015/MPO_1105_Bus_Delay_Work_Program.pdf
+11. A Headway-based Approach to Eliminate Bus Bunching, Berkeley ITS. https://its.berkeley.edu/publications/headway-based-approach-eliminate-bus-bunching-systematic-analysis-and-comparisons
+12. Predicting Passenger Load, TU Delft (CASPT 2018). https://nielsvanoort.weblog.tudelft.nl/files/2018/07/2018_CASPT_PredictingPassengerLoad_22072018_online.pdf
+13. MIT DSpace, real-time crowding estimation and LightGBMLSS. https://dspace.mit.edu/handle/1721.1/162328
+14. Delling, Pajor, Werneck — Round-Based Public Transit Routing (RAPTOR). https://i11www.iti.kit.edu/extra/publications/dpsw-isftr-13.pdf
+15. Wardman & Whelan (2011), Twenty Years of Rail Crowding Valuation Studies. https://ideas.repec.org/a/taf/transr/v31y2011i3p379-398.html
+16. GTFS Realtime Reference. https://gtfs.org/documentation/realtime/reference/
+17. WCAG 2.2 yenilikləri, W3C. https://w3.org/WAI/standards-guidelines/wcag/new-in-22/
+18. Moovit: crowdedness reports (son 10 dəqiqə). https://moovit.com/blog/how-crowded-is-your-bus-know-in-real-time-and-help-others-by-self-reporting/

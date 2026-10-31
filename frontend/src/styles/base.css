@@ -1,0 +1,284 @@
+/* Ortaq təməl: bir şrift (Public Sans, lokal), sıfırlama, brauzer səthləri, ortaq komponentlər. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: 'Public Sans Variable', 'Public Sans', Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd {
+  margin: 0;
+}
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.num,
+.v,
+.clock,
+.arr-eta,
+.j-time {
+  font-variant-numeric: tabular-nums;
+}
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --lvl1-bg: #dcfae5;
+  --lvl1-ink: #04250e;
+  --lvl1-mark: #2e7d32;
+  --lvl2-bg: #fff3d6;
+  --lvl2-ink: #6b3a06;
+  --lvl2-mark: #b7791f;
+  --lvl3-bg: #ffedea;
+  --lvl3-ink: #831c1e;
+  --lvl3-mark: #c4242a;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skip {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 2000;
+  padding: 8px 12px;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: 6px;
+  transition: top 160ms var(--ease-out);
+}
+.skip:focus {
+  top: 8px;
+}
+:focus-visible {
+  outline: 2px solid var(--focus, #1d5fbf);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- sıxlıq qlifi və pill --- */
+.crowd-glyph rect.on {
+  fill: currentColor;
+}
+.crowd-glyph rect.off {
+  fill: currentColor;
+  opacity: 0.22;
+}
+.crowd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  white-space: nowrap;
+  height: 24px;
+  padding: 0 9px 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.crowd-pill.lvl-1 {
+  background: var(--lvl1-bg);
+  color: var(--lvl1-ink);
+}
+.crowd-pill.lvl-2 {
+  background: var(--lvl2-bg);
+  color: var(--lvl2-ink);
+}
+.crowd-pill.lvl-3 {
+  background: var(--lvl3-bg);
+  color: var(--lvl3-ink);
+}
+.crowd-pill.lvl-none {
+  background: var(--raised);
+  color: var(--muted);
+}
+
+.trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.trust svg .ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.trust svg .fill {
+  fill: currentColor;
+}
+.trust svg .slash {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.trust-confirmed {
+  color: var(--text);
+}
+.trust-suspicious {
+  color: var(--negative);
+}
+
+.route-badge {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.rb-sm {
+  min-width: 30px;
+  height: 22px;
+  font-size: 12px;
+  border-radius: 5px;
+}
+.rb-lg {
+  min-width: 42px;
+  height: 32px;
+  font-size: 16px;
+  vertical-align: middle;
+}
+
+/* --- xəritə --- */
+.map {
+  height: 100%;
+  width: 100%;
+  min-height: 260px;
+}
+.map .leaflet-container {
+  font-family: inherit;
+  background: var(--raised);
+}
+.bus-marker-wrap {
+  background: none;
+  border: 0;
+}
+.bus-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-grid;
+  place-items: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  color: #fff;
+  background: #6b6b6b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); /* taste-skill-ignore: xəritə üzərində üzən marker */
+  transition: opacity 200ms ease;
+}
+.bus-marker:not(:empty) {
+  height: 22px;
+}
+.bus-marker.lvl-1 {
+  background: var(--lvl1-mark);
+}
+.bus-marker.lvl-2 {
+  background: var(--lvl2-mark);
+}
+.bus-marker.lvl-3 {
+  background: var(--lvl3-mark);
+}
+.bus-marker.ring {
+  outline: 2px dashed #fff;
+  outline-offset: 2px;
+}
+.bus-marker.reserve {
+  border-style: double;
+  border-width: 3px;
+}
+.bus-marker.dim {
+  opacity: 0.25;
+}
+.stop-dot {
+  fill: #fff;
+  fill-opacity: 1;
+  stroke: #141414;
+  stroke-width: 2;
+}
+.stop-dot.selected {
+  fill: #141414;
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+.spin {
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}

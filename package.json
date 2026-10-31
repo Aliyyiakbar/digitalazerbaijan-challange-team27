@@ -1,0 +1,18 @@
+{
+  "name": "smart-transit-baku",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Bakı ictimai nəqliyyatı üçün real vaxt marşrut və yük analitikası (crowdsourcing engine)",
+  "scripts": {
+    "setup": "npm --prefix backend ci && npm --prefix frontend ci",
+    "dev": "node scripts/dev.mjs",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run build && STATIC_DIR=../frontend/dist npm --prefix backend start",
+    "geodata": "node scripts/build-geodata.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
