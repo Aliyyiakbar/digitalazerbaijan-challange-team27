@@ -979,3 +979,115 @@
     border-left: 0;
   }
 }
+
+/* --- vizual yeniləmə: "missiya mərkəzi" üslubu ---
+   Daha incə rail, kart-forma KPI-lər, accent zolaqlı xəbərdarlıqlar, yumşaq sərhədlər. */
+.operator {
+  --ground: #0f1014;
+  --surface: #16171d;
+  --raised: #1c1e26;
+  --border: #262833;
+  --rule: #1d1f28;
+  --control: #2a2c38;
+  --muted: #9498a6;
+  --accent: #5b9cf5;
+  --focus: #5b9cf5;
+  --radius-card: 10px;
+  --gap: 20px;
+}
+.rail {
+  gap: 6px;
+  padding: 16px 0;
+}
+.rail-mark {
+  margin-bottom: 14px;
+}
+.rail a {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  color: var(--muted);
+}
+.rail a.active {
+  color: var(--text);
+  background: var(--raised);
+}
+.rail a.active::after {
+  top: 14px;
+  bottom: 14px;
+  border-radius: 1px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .rail a:hover {
+    background: var(--raised);
+    color: var(--text);
+  }
+}
+.title-row h1 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.title-row .finding {
+  font-size: 14px;
+  color: var(--muted);
+}
+.clock {
+  font-variant-numeric: tabular-nums;
+}
+.kpis {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  overflow: hidden;
+}
+.kpis > div {
+  padding: 16px 20px;
+}
+.kpis dt {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.kpis dd {
+  font-size: 30px;
+  font-weight: 600;
+}
+.panel {
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.panel-head h2 {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+.alert {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--control);
+  border-radius: 8px;
+}
+.alert.a-reserve,
+.alert.a-bot {
+  border-left-color: var(--lvl3-mark);
+}
+.alert.a-forecast,
+.alert.a-traffic,
+.alert.a-bunching {
+  border-left-color: var(--lvl2-mark);
+}
+.legend li {
+  font-size: 12.5px;
+}
+.btn-primary {
+  border-radius: 8px;
+}
+.btn-secondary {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.rtable tbody tr.sel th {
+  border-left: 2px solid var(--accent);
+}
+.rtable tbody tr.sel td,
+.rtable tbody tr.sel th {
+  background: rgba(91, 156, 245, 0.07);
+}

@@ -11,7 +11,7 @@ import { RouteView } from '../passenger/RouteView';
 import { SavedView } from '../passenger/SavedView';
 import { SearchView } from '../passenger/SearchView';
 import { StopView } from '../passenger/StopView';
-import { usePassenger, useScene, type Layers, type View } from '../passenger/usePassenger';
+import { usePassenger, useScene, useResolvedTheme, type Layers, type View } from '../passenger/usePassenger';
 
 const TABS: Array<{ kind: View['kind']; label: string; icon: typeof Compass; also?: View['kind'][] }> = [
   { kind: 'home', label: 'Xəritə', icon: Compass, also: ['stop', 'search'] },
@@ -45,7 +45,8 @@ export function MobileApp() {
   const onRoute = (id: string) => go({ kind: 'route', id });
   const activeTab = TABS.find((t) => t.kind === view.kind || t.also?.includes(view.kind))?.kind ?? 'home';
 
-  const cls = ['passenger', 'mobile-app', prefs.contrast && 'contrast', prefs.large && 'large'].filter(Boolean).join(' ');
+  const theme = useResolvedTheme(prefs.theme);
+  const cls = ['passenger', 'mobile-app', theme === 'dark' && 'dark', prefs.contrast && 'contrast', prefs.large && 'large'].filter(Boolean).join(' ');
 
   const settings = (
     <section className="m-settings" aria-labelledby="settings-title">
@@ -65,6 +66,13 @@ export function MobileApp() {
         <span>Yüksək kontrast</span>
         <input type="checkbox" role="switch" checked={prefs.contrast} onChange={(e) => setPrefs({ contrast: e.target.checked })} />
       </label>
+      <div className="seg" role="group" aria-label="Mövzu">
+        {(['auto', 'light', 'dark'] as const).map((t) => (
+          <button key={t} type="button" className={(prefs.theme ?? 'auto') === t ? 'on' : ''} onClick={() => setPrefs({ theme: t })}>
+            {t === 'auto' ? 'Avtomatik' : t === 'light' ? 'İşıqlı' : 'Qaranlıq'}
+          </button>
+        ))}
+      </div>
       {install && (
         <button
           type="button"

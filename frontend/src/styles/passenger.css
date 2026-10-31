@@ -30,6 +30,53 @@
   background: #1d6ff2;
   color: #fff;
 }
+.passenger.dark {
+  --ground: #101216;
+  --surface: #16191f;
+  --raised: #1f242c;
+  --border: #2a2f38;
+  --rule: #22262e;
+  --control: #3a4049;
+  --text: #eef1f5;
+  --muted: #9aa4b1;
+  --accent: #4a9ff5;
+  --positive: #3fae74;
+  --negative: #ef5c63;
+  --chart-3: #4a9ff5;
+  --focus: #4a9ff5;
+  color-scheme: dark;
+}
+.passenger.dark .sheet,
+.passenger.dark .panel,
+.passenger.dark .menu,
+.passenger.dark .toast,
+.passenger.dark .modal {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.passenger.dark .map-light .leaflet-tile-pane {
+  filter: saturate(0.15) contrast(0.9) brightness(0.62) invert(0.92) hue-rotate(185deg) saturate(2.6) brightness(0.94);
+}
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--raised);
+  border-radius: 9px;
+  margin: 6px 0;
+}
+.seg button {
+  flex: 1;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.seg button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
 .passenger.large {
   --fs: 18px;
 }

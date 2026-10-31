@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'Bakı Sıxlıq — avtobus gəlişləri və sıxlıq',
-        short_name: 'Bakı Sıxlıq',
+        name: 'Smart Transit Baku — avtobus gəlişləri və sıxlıq',
+        short_name: 'SmartTransit',
         description: 'Avtobus nə vaxt gəlir və içində yer varmı? Sərnişinlərin real vaxt bildirişləri ilə.',
         lang: 'az',
         id: '/mobile',

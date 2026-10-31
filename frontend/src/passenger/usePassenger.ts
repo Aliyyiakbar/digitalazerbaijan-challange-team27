@@ -13,6 +13,20 @@ export interface Prefs {
   simple: boolean;
   contrast: boolean;
   large: boolean;
+  theme?: 'auto' | 'light' | 'dark';
+}
+
+/** prefs.theme -> həll olunmuş mövzu. 'auto' sistem parametrlərini izləyir. */
+export function useResolvedTheme(theme: Prefs['theme']): 'light' | 'dark' {
+  const media = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const [sys, setSys] = useState(() => media?.matches ?? false);
+  useEffect(() => {
+    if (!media) return;
+    const fn = (e: MediaQueryListEvent) => setSys(e.matches);
+    media.addEventListener('change', fn);
+    return () => media.removeEventListener('change', fn);
+  }, [media]);
+  return theme === 'dark' || (theme !== 'light' && sys) ? 'dark' : 'light';
 }
 export type InstallEvent = Event & { prompt: () => Promise<void> };
 export interface Layers {
@@ -190,7 +204,7 @@ export function usePassenger(base: string) {
   useEffect(() => {
     if (!net) return;
     const name = view.kind === 'stop' ? net.stops.find((s) => s.id === view.id)?.name : view.kind === 'route' ? `${view.id} nömrəli xətt` : view.kind === 'plan' ? 'Marşrut planı' : view.kind === 'lines' ? 'Xətlər' : view.kind === 'saved' ? 'Seçilmişlər' : null;
-    document.title = name ? `${name} · Bakı Sıxlıq` : 'Bakı Sıxlıq';
+    document.title = name ? `${name} · Smart Transit Baku` : 'Smart Transit Baku';
   }, [net, view]);
 
   return { net, error, bg, live, connected, online, pos, locStatus, locate, prefs, setPrefs, ...savedApi, install, setInstall, queued, from, setFrom, fitNonce, refit, journey, setJourney, view, go, back, dir, setDir };

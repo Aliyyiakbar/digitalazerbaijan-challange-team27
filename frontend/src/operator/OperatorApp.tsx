@@ -246,12 +246,8 @@ export function OperatorApp() {
         Əsas məzmuna keç
       </a>
       <nav className="rail" aria-label="Dispetçer bölmələri">
-        <span className="rail-mark" aria-label="Bakı Sıxlıq · AYNA dispetçer">
-          <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden>
-            <rect x="14" y="36" width="9" height="14" rx="2" fill="#fff" />
-            <rect x="27.5" y="26" width="9" height="24" rx="2" fill="#fff" />
-            <rect x="41" y="14" width="9" height="36" rx="2" fill="#4a8ad6" />
-          </svg>
+        <span className="rail-mark" aria-label="Smart Transit Baku · AYNA dispetçer">
+          <img src="/icon.svg" width="30" height="30" alt="" aria-hidden />
         </span>
         <NavLink end to="/operator" title="Ümumi baxış">
           <LayoutDashboard size={18} aria-hidden />

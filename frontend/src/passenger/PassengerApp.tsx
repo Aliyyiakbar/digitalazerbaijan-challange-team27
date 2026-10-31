@@ -13,7 +13,7 @@ import { RouteView } from './RouteView';
 import { SavedView } from './SavedView';
 import { SearchView } from './SearchView';
 import { StopView } from './StopView';
-import { usePassenger, useScene, type Layers, type View } from './usePassenger';
+import { usePassenger, useScene, useResolvedTheme, type Layers, type View } from './usePassenger';
 
 const TABS: Array<{ kind: View['kind']; label: string; icon: typeof Compass }> = [
   { kind: 'home', label: 'Kəşf et', icon: Compass },
@@ -72,7 +72,8 @@ export function PassengerApp() {
   const scene = useScene({ net, live, view, dir, pos, fitNonce, journey, layers, hover, bg });
   const pad = useMemo(() => (desktop ? { tl: [472, 48] as [number, number], br: [showPanel ? 372 : 48, 48] as [number, number] } : { tl: [24, 90] as [number, number], br: [24, Math.round(window.innerHeight * 0.45)] as [number, number] }), [desktop, showPanel]);
 
-  const cls = ['passenger', 'desk', showPanel && 'with-panel', prefs.simple && 'simple', prefs.contrast && 'contrast', prefs.large && 'large'].filter(Boolean).join(' ');
+  const theme = useResolvedTheme(prefs.theme);
+  const cls = ['passenger', 'desk', showPanel && 'with-panel', theme === 'dark' && 'dark', prefs.simple && 'simple', prefs.contrast && 'contrast', prefs.large && 'large'].filter(Boolean).join(' ');
   const onStop = (id: string) => go({ kind: 'stop', id });
   const onRoute = (id: string) => go({ kind: 'route', id });
 
@@ -105,14 +106,9 @@ export function PassengerApp() {
   const deskHead = desktop && (
     <>
       <div className="d-brand">
-        <a className="wordmark" href="/" aria-label="Bakı Sıxlıq, ana səhifə">
-          <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden>
-            <rect width="64" height="64" rx="14" fill="currentColor" />
-            <rect x="14" y="36" width="9" height="14" rx="2" fill="#fff" />
-            <rect x="27.5" y="26" width="9" height="24" rx="2" fill="#fff" />
-            <rect x="41" y="14" width="9" height="36" rx="2" fill="#1d6ff2" />
-          </svg>
-          <span>Bakı Sıxlıq</span>
+        <a className="wordmark" href="/" aria-label="Smart Transit Baku, ana səhifə">
+          <img src="/icon.svg" width="24" height="24" alt="" aria-hidden />
+          <span>Smart Transit Baku</span>
         </a>
         <span className={`conn ${connected ? 'ok' : ''}`} role="status">
           {connected ? 'Canlı' : 'Qoşulur…'}
@@ -203,6 +199,13 @@ export function PassengerApp() {
               <label>
                 <input type="checkbox" checked={prefs.contrast} onChange={(e) => setPrefs({ contrast: e.target.checked })} /> Yüksək kontrast
               </label>
+              <div className="seg" role="group" aria-label="Mövzu">
+                {(['auto', 'light', 'dark'] as const).map((t) => (
+                  <button key={t} type="button" className={(prefs.theme ?? 'auto') === t ? 'on' : ''} onClick={() => setPrefs({ theme: t })}>
+                    {t === 'auto' ? 'Avtomatik' : t === 'light' ? 'İşıqlı' : 'Qaranlıq'}
+                  </button>
+                ))}
+              </div>
               {install && (
                 <button
                   type="button"
