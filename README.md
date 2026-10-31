@@ -2,12 +2,12 @@
 
 Bakı ictimai nəqliyyatı üçün real vaxt marşrut və yük (sıxlıq) analitikası sisteminin funksional prototipi.
 
-- **Sərnişin modulu** (PWA): dayanacaq və ya xətt seçilir, avtobusların canlı yeri, gözlənilən gəliş vaxtı (ETA) və sıxlıq səviyyəsi görünür. Sıxlığı bir toxunuşla bildirmək olar: aşağı, orta və ya yüksək.
+- **Sərnişin modulu** (PWA, kompüter üçün `/`, telefon üçün `/mobile`): dayanacaq və ya xətt seçilir, avtobusların canlı yeri, gözlənilən gəliş vaxtı (ETA) və sıxlıq səviyyəsi görünür. Sıxlığı bir toxunuşla bildirmək olar: aşağı, orta və ya yüksək.
 - **Operator modulu** (analitika engine): sərnişin bildirişləri və GPS əsasında xətlər üzrə sıxlıq xəritəsi və siyahısı canlı yenilənir. Xətt **10 dəqiqə fasiləsiz "yüksək"** qalanda panelə avtomatik olaraq **"əlavə avtobus ehtiyatı ayrılmalıdır"** tövsiyəsi düşür. Operator bir kliklə ehtiyat avtobusu xəttə buraxır.
 
 > **Kontekst.** Bakının avtobus sisteminə AYNA (Azərbaycan Yerüstü Nəqliyyat Agentliyi) baxır. BNA 2023-cü ildə ləğv edilib və funksiyaları AYNA-ya keçib. AYNA MaaS tətbiqi avtobusun yerini və ETA-nı göstərir, amma **avtobusun nə qədər dolu olduğunu göstərmir**. 4 avqust 2026-dan metroda 28 May–Nizami hissəsi bağlıdır, M1–M6 ekspres xətləri açılıb, sərnişinlər M6 və 17 nömrəli xətlərin sıxlığından şikayət edir. Prototip bu ssenari üzərində qurulub. Mənbələr: [docs/TEXNIKI_IZAH.md](docs/TEXNIKI_IZAH.md#mənbələr).
 
-> **Real məlumat (opendata.az).** Şəbəkə rəsmi açıq məlumatdan qurulub: AYNA-nın **243 xəttinin həndəsəsi** (CC0), BakuBus-un **3 590 dayanacağı** və **65 xətt üzrə 1 yanvar–30 sentyabr 2026 gündəlik gedişləri** (CC BY). Bunlardan **63 canlı xətt, 1 719 dayanacaq, 526 avtobus** alınır. Rəsmi məlumatda xətt ilə dayanacaq arasında əlaqə yoxdur, ona görə dayanacaq xəttin həndəsəsinə ≤25 m yaxındırsa, həmin xəttə bağlanır. Hər xəttin tələbatı, avtobus sayı və proqnoz bazası onun **real gündəlik gedişlərindən** kalibrlənib. Qalan 180 xətt xəritədə boz fon kimi görünür. Yalnız avtobusların anlıq hərəkəti və sərnişin bildirişləri simulyasiyadır. Yeniləmək üçün: `npm run opendata`.
+> **Real məlumat (opendata.az).** Şəbəkə rəsmi açıq məlumatdan qurulub: AYNA-nın **243 xəttinin həndəsəsi** (CC0), BakuBus-un **3 590 dayanacağı** və **65 xətt üzrə 1 yanvar–30 sentyabr 2026 gündəlik gedişləri** (CC BY). Bunlardan **63 xətt, 1 735 dayanacaq, 526 avtobus** alınır. Rəsmi məlumatda xətt ilə dayanacaq arasında əlaqə yoxdur, ona görə dayanacaq xəttin həndəsəsinə ≤25 m yaxındırsa, həmin xəttə bağlanır. Gediş və qayıdış da həndəsədən hesablanır: faylda xətlərin çoxu hərəkətin əksinə çəkildiyi üçün istiqamət sağtərəfli hərəkətə görə təyin olunur (60 xətt çevrilib). Hər xəttin tələbatı, avtobus sayı və proqnoz bazası onun **real gündəlik gedişlərindən** kalibrlənib. Qalan 180 xətt xəritədə boz fon kimi görünür. Yalnız avtobusların anlıq hərəkəti və sərnişin bildirişləri simulyasiyadır. Yeniləmək üçün: `node scripts/import-opendata.mjs`.
 
 ---
 
@@ -26,7 +26,7 @@ Bakı ictimai nəqliyyatı üçün real vaxt marşrut və yük (sıxlıq) analit
 
 ## 1. Tez başlanğıc
 
-### A) Docker ilə (tövsiyə olunur)
+### A) Docker ilə (fayllar hazırdır, hələ sınaqdan keçirilməyib)
 
 ```bash
 docker compose up --build
@@ -34,7 +34,8 @@ docker compose up --build
 
 | Ünvan | Nə var |
 |---|---|
-| http://localhost:3000 | Sərnişin tətbiqi (PWA) |
+| http://localhost:3000 | Sərnişin tətbiqi, kompüter versiyası |
+| http://localhost:3000/mobile | Sərnişin tətbiqi, telefon versiyası (PWA) |
 | http://localhost:3000/operator | Dispetçer paneli |
 | http://localhost:3000/operator/demo | Demo ssenariləri, simulyasiya sürəti |
 | http://localhost:8080/api/docs | API sənədi (Swagger) |
@@ -44,26 +45,24 @@ Compose-da 5 servis var: `postgres` (16), `redis` (7), `backend` (API + engine +
 
 Demoda hər şeyi sürətləndirmək üçün: `SIM_SPEED=10 docker compose up --build`.
 
-### B) Lokal (Docker-siz)
+### B) Lokal (Docker-siz, sınaqdan keçirilib)
 
-Tələblər: **Node.js 22+** və **Redis** (`brew install redis && redis-server`). PostgreSQL **lazım deyil**: `DATABASE_URL` boşdursa backend **PGlite**-dan istifadə edir. Bu, WASM üzərində işləyən real PostgreSQL-dir, eyni sxem və eyni SQL ilə işləyir və məlumatı `backend/.data/` qovluğunda saxlayır.
+Tələb: **Node.js 22+**. Redis isə ixtiyaridir: `REDIS_URL` boşdursa, backend yaddaşdaxili store ilə işləyir (bir backend instansı üçün). PostgreSQL də **lazım deyil**: `DATABASE_URL` boşdursa backend **PGlite**-dan istifadə edir. Bu, WASM üzərində işləyən real PostgreSQL-dir, eyni sxem və eyni SQL ilə işləyir və məlumatı `backend/.data/` qovluğunda saxlayır.
 
-```bash
-npm run setup                  # backend + frontend asılılıqları
-npm run dev                    # backend :8080 + frontend :5173
-# brauzer: http://localhost:5173   və   http://localhost:5173/operator
-```
-
-Ayrı-ayrılıqda işə salmaq:
+Redis olmadan, iki ayrı terminalda (Windows, macOS, Linux):
 
 ```bash
-cd backend  && REDIS_URL=redis://127.0.0.1:6379 npm start          # API :8080
-cd frontend && VITE_BACKEND=http://localhost:8080 npm run dev       # UI  :5173
+npm run setup                                 # backend + frontend asılılıqları
+cd backend  && node --import tsx src/server.ts   # API :8080
+cd frontend && npx vite --port 3000              # UI  :3000
+# brauzer: http://localhost:3000, /mobile, /operator
 ```
+
+Redis ilə, bir əmrlə: Redis-i işə salın, sonra `npm run dev` (backend :8080, frontend :5173).
 
 Real PostgreSQL ilə: `DATABASE_URL=postgres://user:pass@localhost:5432/smart_transit npm start`. Sxem başlanğıcda avtomatik yaradılır (`backend/src/db/schema.sql`).
 
-Production build (frontend-i backend özü verir): `npm start`. Ünvan: http://localhost:8080.
+Production build (frontend-i backend özü verir): `npm start` (macOS, Linux). Ünvan: http://localhost:8080.
 
 Bütün dəyişənlər: [`.env.example`](.env.example).
 
@@ -81,7 +80,9 @@ Bütün dəyişənlər: [`.env.example`](.env.example).
 6. **Tıxac** (6). Sürət düşür, amma dayanma müddəti adi qalır. Səbəb "Tıxac" kimi təsnif olunur və panel əlavə avtobusun kömək etməyəcəyini bildirir.
 7. **Toplanma** (88). İki avtobus bir-birinin ardınca düşür. Panel arxadakı avtobusu neçə dəqiqə saxlamağı tövsiyə edir, sərnişinə isə "bunu burax, növbətisi boşdur" deyilir.
 8. **/operator/history** (vaxt maşını). Son 2 saatı geri sarıb sıxlığın necə yayıldığına baxın. Xəbərdarlıqlar zaman zolağında işarələnib.
-9. Sərnişin tətbiqi (AYNA MaaS üslubunda): xəritə tam ekrandır, üstdə axtarış, altda panel var. **"Yerimi göstər"** basanda yeriniz mavi nöqtə ilə görünür, yaxınlıqdakı dayanacaqlar məsafəsi ilə siyahıya düşür. **"Haraya gedirsiniz?"** bölməsi Variantlar "hiss olunan vaxta" görə sıralanır: dolu avtobusda ayaq üstə getmək təxminən 2.3 dəfə uzun hiss olunur.
+9. Sərnişin tətbiqi (AYNA MaaS üslubunda): xəritə tam ekrandır, üstdə axtarış, altda panel var. **"Yerimi göstər"** basanda yeriniz mavi nöqtə ilə görünür, yaxınlıqdakı dayanacaqlar məsafəsi ilə siyahıya düşür. **"Haraya gedirsiniz?"** bölməsində variantlar "hiss olunan vaxta" görə sıralanır: dolu avtobusda ayaq üstə getmək təxminən 2.3 dəfə uzun hiss olunur. Seçilmiş variant xəritədə çəkilir.
+10. **/mobile** (telefon ölçüsündə açın): aşağıda dörd bölmə var (Xəritə, Marşrut, Xətlər, Seçilmişlər), panel üç vəziyyətə sürüşür. Xətti açıb **Gediş** və **Qayıdış** arasında keçin: dayanacaqlar və xəritədəki oxlar dəyişir.
+11. **Kompüter versiyası** (`/`): sağda şəbəkənin vəziyyəti, "Xətlər" bölməsində süzgəc və sıralama, xəritə qatları, seçilmişlər. `/` axtarışı açır, `Esc` geri qaytarır.
 
 ---
 
@@ -130,7 +131,7 @@ flowchart LR
    - domino riski;
    - 10 dəqiqəlik qayda.
 
-   Nəticələr Redis pub/sub vasitəsilə bütün WebSocket müştərilərinə gedir.
+   Nəticələr hər 2 saniyədə Redis pub/sub (və ya yaddaşdaxili store) vasitəsilə bütün WebSocket müştərilərinə gedir. HTTP cavabları gzip ilə sıxılır.
 5. Operator "Ehtiyat avtobus göndər" basanda engine simulyatora `add-bus` əmri verir (ayrıca proses rejimində bu əmr WebSocket ilə gedir) və yeni avtobus GPS göndərməyə başlayır.
 
 **Niyə belə:**
@@ -148,6 +149,7 @@ Tam sənəd: **`/api/docs`** (Swagger UI, OpenAPI 3.1).
 |---|---|---|
 | POST | `/api/session` | Anonim cihaz tokeni (HMAC) |
 | GET | `/api/network` | Xətlər, dayanacaqlar, həndəsə |
+| GET | `/api/network/background` | Bütün AYNA marşrutlarının fon həndəsəsi |
 | GET | `/api/stops/{id}/arrivals` | Dayanacağa gələn avtobuslar: ETA, sıxlıq, etibar, "bunu burax" tövsiyəsi |
 | GET | `/api/routes/{id}/live` | Xəttin canlı avtobusları |
 | GET | `/api/plan?from&to` | Sıxlığı nəzərə alan marşrut planı (≤1 köçürmə) |
@@ -200,7 +202,7 @@ curl -XPOST localhost:8080/api/reports -H 'content-type: application/json' \
 ```bash
 npm test                         # hamısı
 cd backend && npm test           # 45 test: engine unit + API inteqrasiya (PGlite yaddaşda)
-cd frontend && npm test          # 7 test: UI smoke (jsdom, real API cavablarından fixture)
+cd frontend && npm test          # 12 test: UI smoke (jsdom, real API cavablarından fixture)
 cd backend && npm run typecheck
 ```
 
@@ -225,7 +227,8 @@ smart-transit-baku/
 │   ├── test/
 │   └── Dockerfile
 ├── frontend/
-│   ├── src/passenger/           sərnişin PWA
+│   ├── src/passenger/           sərnişin tətbiqi: kompüter versiyası və ortaq ekranlar
+│   ├── src/mobile/              telefon tətbiqi (/mobile)
 │   ├── src/operator/            dispetçer paneli
 │   ├── src/components/          xəritə, sıxlıq/etibar nişanları, proqnoz qrafiki
 │   ├── test/
@@ -242,21 +245,24 @@ smart-transit-baku/
 
 - **Avtobusların anlıq hərəkəti və bildirişlər simulyasiyadır.** AYNA-nın açıq real vaxt API-si və ya GTFS axını yoxdur. Simulyator real gündəlik gedişlərlə kalibrlənib. Simulyatorun "dürüst" sərnişinləri avtobusun həqiqi doluluğuna uyğun bildiriş göndərir (~14%-i bir səviyyə səhv olur). Ssenarilər UI-da "simulyasiya" kimi işarələnib.
 - **Xətt həndəsəsi 27.11.2025 tarixli AYNA snapshot-udur.** 2026-cı il dəyişiklikləri, məsələn yeni M-xətlərinin marşrutu, orada olmaya bilər.
-- **Xətt ↔ dayanacaq əlaqəsi həndəsi yaxınlıqla qurulub**, rəsmi siyahı deyil. Kəsişmələrdə qonşu küçənin dayanacağı da xəttə düşə bilər.
+- **Xətt ↔ dayanacaq əlaqəsi həndəsi yaxınlıqla qurulub**, rəsmi siyahı deyil. Kəsişmələrdə qonşu küçənin dayanacağı da xəttə düşə bilər, ekspres xətlər hər dayanacaqda dayanmaya bilər.
+- **Gediş və qayıdış hesablanıb**, rəsmi cədvəl deyil. Dayanacaq yolun hansı tərəfində qalırsa, həmin istiqamətə aid sayılır. Çevrilmədən sonra tək keçidli dayanacaqların 83%-i düzgün (sağ) tərəfdədir. Üçüncü tərəf saytların (məs. BirJob) bazası işlədilməyib, çünki onların `robots.txt` qaydaları buna icazə vermir.
+- **206 xətti** hələ canlı göstərilir, amma real məlumatda onun son gedişi 19 yanvar 2026-dır.
 - **Avtobus sayı və interval gündəlik gedişlərdən təxmin edilib** (gündə ~1 300 gedişə bir avtobus, 3–14 aralığında). Bu rəsmi park məlumatı deyil.
 - Gediş sayı **validasiya** sayıdır, unikal sərnişin deyil. Bunu nəşr edən qurumun özü vurğulayır.
 - Dayanacaq faylının lisenziyası göstərilməyib. Yenidən paylamazdan əvvəl Bakı Metropoliteni ilə dəqiqləşdirin.
 - **Proqnoz modeli** yarımsintetik tarixçə ilə öyrədilir. Hər xəttin yükü və həftə günü əmsalları realdır, gün içindəki saatlıq profil isə sintetikdir, çünki açıq məlumatda saatlıq bölgü yoxdur. Real dəqiqlik yalnız AYNA/BakıKart məlumatı ilə ölçülə bilər.
 - Operator panelində autentifikasiya yoxdur (prototip). Production üçün AYNA SSO/RBAC lazımdır.
-- Docker faylları yazılıb, amma hazırlandığı mühitdə Docker işə salına bilmədi. Lokal yol (PGlite + Redis) və Docker-in istifadə etdiyi ayrıca simulyator rejimi isə test olunub. Ətraflı: [AI_DECLARATION.md](AI_DECLARATION.md).
+- **Docker Compose sınaqdan keçirilməyib**, çünki iş mühitlərində Docker yox idi. Real PostgreSQL ilə də sınaq aparılmayıb (eyni SQL PGlite-da işləyir). Sınaqdan keçirilən yol: lokal Node + PGlite.
+- **Real telefonda yoxlanmayıb.** `/mobile` kompüter brauzerində telefon ölçüsündə yoxlanılıb; toxunma, klaviatura və notch davranışı real cihazda sınanmalıdır. Ətraflı: [AI_DECLARATION.md](AI_DECLARATION.md).
 
 ---
 
 ## 9. Təhvil materialları
 
-- [x] İşlək proqram və mənbə kodu (bu repo / zip arxiv)
+- [x] İşlək proqram və mənbə kodu: https://github.com/Aliyyiakbar/digitalazerbaijan-challange-team27
 - [x] İşə salma təlimatı və arxitektura qeydi: bu README
 - [x] AI istifadəsi haqqında bəyannamə: [AI_DECLARATION.md](AI_DECLARATION.md)
-- [x] Texniki izah sənədi: [docs/TEXNIKI_IZAH.md](docs/TEXNIKI_IZAH.md), Notepad üçün [docs/TEXNIKI_IZAH.txt](docs/TEXNIKI_IZAH.txt)
+- [x] Texniki izah sənədi: Word: [docs/TEXNIKI_IZAH.docx](docs/TEXNIKI_IZAH.docx), Notepad: [docs/TEXNIKI_IZAH.txt](docs/TEXNIKI_IZAH.txt), Markdown: [docs/TEXNIKI_IZAH.md](docs/TEXNIKI_IZAH.md)
 
-**Komanda:** [Üzv 1: rol] · [Üzv 2: rol] · [Üzv 3: rol]
+**Komanda:** Team 27: Əli Məmmədov · Əliyyiəkbər Şirinli · Rauf Bayramov
